@@ -1,0 +1,13 @@
+# Core dependencies (CPU-only, the classical harness runs on these alone).
+numpy>=1.24
+scipy>=1.10
+scikit-learn>=1.2
+pandas>=1.5
+
+# --- Optional, for the lab environment ---
+# Uncomment / install separately when implementing the torch backend or QFL.
+# torch>=2.0           # models/torch_models.py (real encoders)
+# transformers>=4.30   # ClinicalBERT/CXR-BERT text encoder for IU X-ray
+# qiskit>=1.0          # comm/quantum_stub.py and VQC-based models (Phase 2)
+# hydra-core>=1.3      # if migrating configs/ to Hydra
+# wandb                # experiment tracking

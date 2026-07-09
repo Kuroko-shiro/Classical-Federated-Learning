@@ -1,0 +1,192 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+device = mps  scenario=3 method=loot
+results CSV -> /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/s3_loot_uni_alpha100.0_c4_20260623_172102.csv
+[frozen split] train_pool=2510 test=627 (from splits/iu_split.json)
+client sizes: {0: 650, 1: 580, 2: 643, 3: 637}
+incongruent FedAvg: 1 multimodal + 3 unimodal (image-only)
+loading image cache: data/img_cache_224.pt
+  cached images: 7466
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10133.88it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 30913.57it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 16822.87it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 14756.14it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 18115.39it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+setup 5.1s. starting 40 rounds...
+[round 00] hamming=0.919 macro_f1=0.055 auroc=0.733 auprc=0.266 | 547.2s | comm=4280.6MB
+[round 01] hamming=0.931 macro_f1=0.114 auroc=0.762 auprc=0.342 | 551.0s | comm=8561.2MB
+[round 02] hamming=0.944 macro_f1=0.239 auroc=0.800 auprc=0.368 | 550.4s | comm=12841.8MB
+[round 03] hamming=0.948 macro_f1=0.303 auroc=0.814 auprc=0.381 | 7917.2s | comm=17122.4MB
+[round 04] hamming=0.948 macro_f1=0.336 auroc=0.812 auprc=0.381 | 11459.2s | comm=21403.0MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 05] hamming=0.947 macro_f1=0.383 auroc=0.838 auprc=0.412 | 813.0s | comm=25683.6MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 06] hamming=0.942 macro_f1=0.402 auroc=0.849 auprc=0.401 | 806.7s | comm=29964.1MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 07] hamming=0.934 macro_f1=0.399 auroc=0.860 auprc=0.410 | 809.9s | comm=34244.7MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 08] hamming=0.920 macro_f1=0.390 auroc=0.831 auprc=0.404 | 824.8s | comm=38525.3MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 09] hamming=0.929 macro_f1=0.408 auroc=0.854 auprc=0.410 | 820.8s | comm=42805.9MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 10] hamming=0.926 macro_f1=0.410 auroc=0.855 auprc=0.410 | 595.6s | comm=47086.5MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 11] hamming=0.926 macro_f1=0.402 auroc=0.839 auprc=0.399 | 553.7s | comm=51367.1MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 12] hamming=0.917 macro_f1=0.397 auroc=0.840 auprc=0.391 | 543.1s | comm=55647.7MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 13] hamming=0.907 macro_f1=0.387 auroc=0.834 auprc=0.394 | 543.2s | comm=59928.3MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 14] hamming=0.902 macro_f1=0.383 auroc=0.822 auprc=0.402 | 544.2s | comm=64208.9MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 15] hamming=0.900 macro_f1=0.379 auroc=0.831 auprc=0.390 | 547.0s | comm=68489.5MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 16] hamming=0.895 macro_f1=0.377 auroc=0.807 auprc=0.383 | 543.0s | comm=72770.1MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 17] hamming=0.909 macro_f1=0.382 auroc=0.820 auprc=0.372 | 544.5s | comm=77050.7MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 18] hamming=0.895 macro_f1=0.383 auroc=0.834 auprc=0.394 | 542.4s | comm=81331.3MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 19] hamming=0.905 macro_f1=0.393 auroc=0.835 auprc=0.400 | 550.4s | comm=85611.8MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 20] hamming=0.908 macro_f1=0.394 auroc=0.832 auprc=0.399 | 972.0s | comm=89892.4MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 21] hamming=0.882 macro_f1=0.384 auroc=0.830 auprc=0.395 | 937.1s | comm=94173.0MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 22] hamming=0.898 macro_f1=0.387 auroc=0.831 auprc=0.389 | 934.5s | comm=98453.6MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 23] hamming=0.903 macro_f1=0.381 auroc=0.844 auprc=0.395 | 883.0s | comm=102734.2MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 24] hamming=0.910 macro_f1=0.394 auroc=0.835 auprc=0.391 | 560.5s | comm=107014.8MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 25] hamming=0.914 macro_f1=0.401 auroc=0.827 auprc=0.397 | 542.4s | comm=111295.4MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 26] hamming=0.904 macro_f1=0.386 auroc=0.826 auprc=0.375 | 542.3s | comm=115576.0MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 27] hamming=0.913 macro_f1=0.390 auroc=0.836 auprc=0.385 | 542.9s | comm=119856.6MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 28] hamming=0.908 macro_f1=0.401 auroc=0.844 auprc=0.390 | 537.5s | comm=124137.2MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 29] hamming=0.907 macro_f1=0.386 auroc=0.842 auprc=0.382 | 532.3s | comm=128417.8MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 30] hamming=0.911 macro_f1=0.401 auroc=0.843 auprc=0.396 | 531.8s | comm=132698.4MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 31] hamming=0.904 macro_f1=0.390 auroc=0.837 auprc=0.388 | 532.3s | comm=136978.9MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 32] hamming=0.899 macro_f1=0.392 auroc=0.827 auprc=0.384 | 539.1s | comm=141259.5MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 33] hamming=0.894 macro_f1=0.381 auroc=0.839 auprc=0.383 | 535.3s | comm=145540.1MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 34] hamming=0.905 macro_f1=0.388 auroc=0.832 auprc=0.375 | 531.1s | comm=149820.7MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 35] hamming=0.907 macro_f1=0.400 auroc=0.829 auprc=0.380 | 532.7s | comm=154101.3MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 36] hamming=0.906 macro_f1=0.401 auroc=0.837 auprc=0.383 | 531.7s | comm=158381.9MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 37] hamming=0.904 macro_f1=0.404 auroc=0.827 auprc=0.397 | 532.5s | comm=162662.5MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 38] hamming=0.895 macro_f1=0.405 auroc=0.826 auprc=0.403 | 532.2s | comm=166943.1MB
+/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
+  probs = 1.0 / (1.0 + np.exp(-logits))
+[round 39] hamming=0.895 macro_f1=0.389 auroc=0.804 auprc=0.390 | 532.0s | comm=171223.7MB
+
+total 42927.7s
+saved: /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/s3_loot_uni_alpha100.0_c4_20260623_172102.csv

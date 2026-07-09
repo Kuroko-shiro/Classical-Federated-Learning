@@ -1,0 +1,25 @@
+# Dataset
+data/
+
+# Python
+__pycache__/
+*.pyc
+
+# PyTorch
+*.pt
+*.pth
+*.ckpt
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Logs
+*.log
+runs/
+wandb/

@@ -1,0 +1,63 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+results CSV -> /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/baseline_centralized_c4_20260630_132031.csv
+device = mps  mode=centralized
+loading image cache: data/img_cache_224.pt
+  cached images: 7466
+[centralized] training 1 model on 2510 samples (embed_dim=256, full modality)
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9708.36it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+setup 3.6s. training 80 epochs (lr_decay=cosine)...
+[ep 01] hamming=0.973 macro_f1=0.410 auroc=0.928 | lr=1.00e-04 | 223.3s
+[ep 03] hamming=0.970 macro_f1=0.536 auroc=0.937 | lr=9.97e-05 | 222.5s
+[ep 05] hamming=0.974 macro_f1=0.494 auroc=0.946 | lr=9.90e-05 | 222.3s
+[ep 07] hamming=0.975 macro_f1=0.519 auroc=0.941 | lr=9.81e-05 | 222.5s
+[ep 09] hamming=0.980 macro_f1=0.556 auroc=0.892 | lr=9.69e-05 | 222.6s
+[ep 11] hamming=0.976 macro_f1=0.505 auroc=0.911 | lr=9.54e-05 | 222.3s
+[ep 13] hamming=0.975 macro_f1=0.526 auroc=0.905 | lr=9.36e-05 | 222.5s
+[ep 15] hamming=0.975 macro_f1=0.483 auroc=0.917 | lr=9.16e-05 | 222.8s
+[ep 17] hamming=0.974 macro_f1=0.531 auroc=0.885 | lr=8.93e-05 | 222.7s
+[ep 19] hamming=0.975 macro_f1=0.508 auroc=0.921 | lr=8.67e-05 | 222.4s
+[ep 21] hamming=0.975 macro_f1=0.545 auroc=0.922 | lr=8.39e-05 | 222.4s
+[ep 23] hamming=0.978 macro_f1=0.520 auroc=0.919 | lr=8.10e-05 | 222.3s
+[ep 25] hamming=0.976 macro_f1=0.518 auroc=0.891 | lr=7.78e-05 | 222.6s
+[ep 27] hamming=0.974 macro_f1=0.513 auroc=0.869 | lr=7.44e-05 | 222.8s
+[ep 29] hamming=0.975 macro_f1=0.524 auroc=0.884 | lr=7.09e-05 | 222.7s
+[ep 31] hamming=0.973 macro_f1=0.503 auroc=0.872 | lr=6.73e-05 | 222.6s
+[ep 33] hamming=0.974 macro_f1=0.508 auroc=0.872 | lr=6.36e-05 | 223.2s
+[ep 35] hamming=0.974 macro_f1=0.512 auroc=0.907 | lr=5.98e-05 | 222.6s
+[ep 37] hamming=0.972 macro_f1=0.493 auroc=0.862 | lr=5.59e-05 | 222.5s
+[ep 39] hamming=0.973 macro_f1=0.498 auroc=0.867 | lr=5.20e-05 | 222.6s
+[ep 41] hamming=0.976 macro_f1=0.515 auroc=0.856 | lr=4.80e-05 | 222.8s
+[ep 43] hamming=0.975 macro_f1=0.502 auroc=0.878 | lr=4.41e-05 | 222.5s
+[ep 45] hamming=0.973 macro_f1=0.511 auroc=0.864 | lr=4.02e-05 | 222.6s
+[ep 47] hamming=0.974 macro_f1=0.503 auroc=0.852 | lr=3.64e-05 | 222.6s
+[ep 49] hamming=0.972 macro_f1=0.501 auroc=0.844 | lr=3.27e-05 | 223.1s
+[ep 51] hamming=0.965 macro_f1=0.468 auroc=0.850 | lr=2.91e-05 | 222.7s
+[ep 53] hamming=0.966 macro_f1=0.458 auroc=0.828 | lr=2.56e-05 | 222.7s
+[ep 55] hamming=0.965 macro_f1=0.430 auroc=0.841 | lr=2.22e-05 | 248.7s
+[ep 57] hamming=0.967 macro_f1=0.472 auroc=0.852 | lr=1.90e-05 | 269.1s
+[ep 59] hamming=0.967 macro_f1=0.450 auroc=0.842 | lr=1.61e-05 | 242.8s
+[ep 61] hamming=0.968 macro_f1=0.479 auroc=0.841 | lr=1.33e-05 | 240.6s
+[ep 63] hamming=0.968 macro_f1=0.470 auroc=0.840 | lr=1.07e-05 | 237.2s
+[ep 65] hamming=0.969 macro_f1=0.451 auroc=0.843 | lr=8.43e-06 | 240.6s
+[ep 67] hamming=0.970 macro_f1=0.482 auroc=0.842 | lr=6.38e-06 | 235.6s
+[ep 69] hamming=0.969 macro_f1=0.473 auroc=0.837 | lr=4.59e-06 | 254.7s
+[ep 71] hamming=0.969 macro_f1=0.476 auroc=0.830 | lr=3.09e-06 | 240.2s
+[ep 73] hamming=0.969 macro_f1=0.461 auroc=0.844 | lr=1.88e-06 | 248.3s
+[ep 75] hamming=0.970 macro_f1=0.470 auroc=0.838 | lr=9.61e-07 | 222.3s
+[ep 77] hamming=0.970 macro_f1=0.471 auroc=0.841 | lr=3.47e-07 | 222.8s
+[ep 79] hamming=0.969 macro_f1=0.481 auroc=0.842 | lr=3.85e-08 | 222.2s
+
+total 17755.2s -> /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/baseline_centralized_c4_20260630_132031.csv

@@ -1,0 +1,122 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+results CSV -> /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/s1_fedprox_alpha100.0_c4_20260621_011721.csv
+device = mps  scenario=1 method=fedprox
+[frozen split] public=200 train_pool=2510 test=627 (from splits/iu_split.json)
+[this run] train=2510, test=300, method=fedprox uses_public=False
+client sizes: {0: 650, 1: 580, 2: 643, 3: 637}
+loading image cache: data/img_cache_224.pt
+  cached images: 7466
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9571.10it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 25388.32it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 13466.92it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 20196.64it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 12329.63it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+setup done in 5.5s. starting 40 rounds...
+[round 00] hamming=0.942 macro_f1=0.108 auroc=0.838 auprc=0.347 | 542.1s
+[round 01] hamming=0.962 macro_f1=0.296 auroc=0.909 auprc=0.497 | 546.5s
+[round 02] hamming=0.976 macro_f1=0.424 auroc=0.946 auprc=0.600 | 546.6s
+[round 03] hamming=0.980 macro_f1=0.437 auroc=0.963 auprc=0.683 | 548.5s
+[round 04] hamming=0.981 macro_f1=0.536 auroc=0.965 auprc=0.709 | 551.0s
+[round 05] hamming=0.983 macro_f1=0.586 auroc=0.966 auprc=0.713 | 548.6s
+[round 06] hamming=0.985 macro_f1=0.598 auroc=0.971 auprc=0.744 | 549.1s
+[round 07] hamming=0.983 macro_f1=0.607 auroc=0.964 auprc=0.740 | 548.7s
+[round 08] hamming=0.984 macro_f1=0.662 auroc=0.964 auprc=0.738 | 548.1s
+[round 09] hamming=0.985 macro_f1=0.646 auroc=0.962 auprc=0.714 | 549.2s
+[round 10] hamming=0.983 macro_f1=0.621 auroc=0.960 auprc=0.740 | 549.2s
+[round 11] hamming=0.984 macro_f1=0.645 auroc=0.953 auprc=0.719 | 549.1s
+[round 12] hamming=0.983 macro_f1=0.662 auroc=0.958 auprc=0.741 | 549.4s
+[round 13] hamming=0.984 macro_f1=0.641 auroc=0.956 auprc=0.702 | 548.6s
+[round 14] hamming=0.985 macro_f1=0.638 auroc=0.952 auprc=0.680 | 549.8s
+[round 15] hamming=0.982 macro_f1=0.636 auroc=0.956 auprc=0.675 | 550.8s
+[round 16] hamming=0.983 macro_f1=0.642 auroc=0.950 auprc=0.691 | 548.3s
+[round 17] hamming=0.985 macro_f1=0.639 auroc=0.969 auprc=0.708 | 549.0s
+[round 18] hamming=0.985 macro_f1=0.648 auroc=0.955 auprc=0.749 | 550.7s
+[round 19] hamming=0.984 macro_f1=0.668 auroc=0.959 auprc=0.751 | 548.9s
+[round 20] hamming=0.984 macro_f1=0.651 auroc=0.961 auprc=0.666 | 549.1s
+[round 21] hamming=0.985 macro_f1=0.647 auroc=0.965 auprc=0.683 | 549.7s
+[round 22] hamming=0.985 macro_f1=0.598 auroc=0.969 auprc=0.697 | 549.6s
+[round 23] hamming=0.985 macro_f1=0.642 auroc=0.970 auprc=0.699 | 549.2s
+[round 24] hamming=0.986 macro_f1=0.656 auroc=0.969 auprc=0.719 | 548.8s
+[round 25] hamming=0.985 macro_f1=0.634 auroc=0.957 auprc=0.720 | 550.6s
+[round 26] hamming=0.985 macro_f1=0.641 auroc=0.959 auprc=0.734 | 548.7s
+[round 27] hamming=0.985 macro_f1=0.632 auroc=0.973 auprc=0.696 | 548.9s
+[round 28] hamming=0.983 macro_f1=0.639 auroc=0.973 auprc=0.731 | 550.0s
+[round 29] hamming=0.984 macro_f1=0.636 auroc=0.965 auprc=0.694 | 548.8s
+[round 30] hamming=0.984 macro_f1=0.637 auroc=0.974 auprc=0.711 | 550.5s
+[round 31] hamming=0.983 macro_f1=0.630 auroc=0.964 auprc=0.693 | 550.8s
+[round 32] hamming=0.982 macro_f1=0.591 auroc=0.970 auprc=0.727 | 552.2s
+[round 33] hamming=0.983 macro_f1=0.621 auroc=0.953 auprc=0.693 | 550.7s
+[round 34] hamming=0.985 macro_f1=0.649 auroc=0.965 auprc=0.739 | 550.6s
+[round 35] hamming=0.982 macro_f1=0.613 auroc=0.962 auprc=0.705 | 549.6s
+[round 36] hamming=0.983 macro_f1=0.619 auroc=0.966 auprc=0.715 | 549.6s
+[round 37] hamming=0.983 macro_f1=0.588 auroc=0.964 auprc=0.672 | 550.5s
+[round 38] hamming=0.982 macro_f1=0.591 auroc=0.973 auprc=0.693 | 550.6s
+[round 39] hamming=0.982 macro_f1=0.605 auroc=0.963 auprc=0.692 | 550.0s
+
+total 21976.4s
+saved: /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/s1_fedprox_alpha100.0_c4_20260621_011721.csv

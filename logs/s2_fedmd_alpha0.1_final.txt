@@ -1,0 +1,108 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+results CSV -> /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/s2_fedmd_alpha0.1_c4_20260620_042223.csv
+device = mps  scenario=2 method=fedmd
+[frozen split] public=200 train_pool=2510 test=627 (from splits/iu_split.json)
+[this run] train=2510, test=300, method=fedmd uses_public=True
+client sizes: {0: 1491, 1: 449, 2: 213, 3: 357}
+loading image cache: data/img_cache_224.pt
+  cached images: 7466
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10918.38it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 40226.83it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 15389.25it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 14623.77it/s]
+[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
+Key                                        | Status     |  | 
+-------------------------------------------+------------+--+-
+cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
+cls.seq_relationship.bias                  | UNEXPECTED |  | 
+cls.seq_relationship.weight                | UNEXPECTED |  | 
+cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
+cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
+cls.predictions.bias                       | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+setup done in 4.5s. starting 40 rounds...
+[round 00] (FedMD mean) hamming=0.906 macro_f1=0.005 auroc=0.689 | 608.3s | comm=0.09MB cumulative
+[round 01] (FedMD mean) hamming=0.911 macro_f1=0.040 auroc=0.698 | 607.0s | comm=0.18MB cumulative
+[round 02] (FedMD mean) hamming=0.913 macro_f1=0.059 auroc=0.716 | 607.8s | comm=0.27MB cumulative
+[round 03] (FedMD mean) hamming=0.894 macro_f1=0.075 auroc=0.726 | 607.0s | comm=0.36MB cumulative
+[round 04] (FedMD mean) hamming=0.910 macro_f1=0.085 auroc=0.731 | 607.7s | comm=0.45MB cumulative
+[round 05] (FedMD mean) hamming=0.911 macro_f1=0.069 auroc=0.722 | 607.5s | comm=0.54MB cumulative
+[round 06] (FedMD mean) hamming=0.902 macro_f1=0.076 auroc=0.689 | 607.2s | comm=0.63MB cumulative
+[round 07] (FedMD mean) hamming=0.905 macro_f1=0.059 auroc=0.690 | 606.2s | comm=0.72MB cumulative
+[round 08] (FedMD mean) hamming=0.902 macro_f1=0.058 auroc=0.683 | 606.5s | comm=0.81MB cumulative
+[round 09] (FedMD mean) hamming=0.900 macro_f1=0.071 auroc=0.689 | 606.6s | comm=0.90MB cumulative
+[round 10] (FedMD mean) hamming=0.903 macro_f1=0.083 auroc=0.683 | 606.7s | comm=0.99MB cumulative
+[round 11] (FedMD mean) hamming=0.903 macro_f1=0.073 auroc=0.706 | 606.1s | comm=1.08MB cumulative
+[round 12] (FedMD mean) hamming=0.900 macro_f1=0.107 auroc=0.714 | 607.2s | comm=1.16MB cumulative
+[round 13] (FedMD mean) hamming=0.904 macro_f1=0.101 auroc=0.689 | 607.3s | comm=1.25MB cumulative
+[round 14] (FedMD mean) hamming=0.901 macro_f1=0.066 auroc=0.685 | 607.7s | comm=1.34MB cumulative
+[round 15] (FedMD mean) hamming=0.900 macro_f1=0.087 auroc=0.699 | 612.6s | comm=1.43MB cumulative
+[round 16] (FedMD mean) hamming=0.900 macro_f1=0.101 auroc=0.706 | 610.0s | comm=1.52MB cumulative
+[round 17] (FedMD mean) hamming=0.901 macro_f1=0.113 auroc=0.699 | 740.7s | comm=1.61MB cumulative
+[round 18] (FedMD mean) hamming=0.903 macro_f1=0.095 auroc=0.702 | 895.2s | comm=1.70MB cumulative
+[round 19] (FedMD mean) hamming=0.902 macro_f1=0.110 auroc=0.696 | 893.9s | comm=1.79MB cumulative
+[round 20] (FedMD mean) hamming=0.901 macro_f1=0.122 auroc=0.700 | 895.5s | comm=1.88MB cumulative
+[round 21] (FedMD mean) hamming=0.902 macro_f1=0.131 auroc=0.709 | 892.7s | comm=1.97MB cumulative
+[round 22] (FedMD mean) hamming=0.906 macro_f1=0.130 auroc=0.698 | 891.5s | comm=2.06MB cumulative
+[round 23] (FedMD mean) hamming=0.904 macro_f1=0.120 auroc=0.683 | 888.7s | comm=2.15MB cumulative
+[round 24] (FedMD mean) hamming=0.907 macro_f1=0.132 auroc=0.714 | 890.9s | comm=2.24MB cumulative
+[round 25] (FedMD mean) hamming=0.909 macro_f1=0.120 auroc=0.680 | 888.9s | comm=2.33MB cumulative
+[round 26] (FedMD mean) hamming=0.911 macro_f1=0.145 auroc=0.705 | 893.3s | comm=2.42MB cumulative
+[round 27] (FedMD mean) hamming=0.910 macro_f1=0.122 auroc=0.700 | 890.0s | comm=2.51MB cumulative
+[round 28] (FedMD mean) hamming=0.905 macro_f1=0.127 auroc=0.700 | 891.2s | comm=2.60MB cumulative
+[round 29] (FedMD mean) hamming=0.904 macro_f1=0.113 auroc=0.706 | 889.8s | comm=2.69MB cumulative
+[round 30] (FedMD mean) hamming=0.899 macro_f1=0.119 auroc=0.695 | 921.6s | comm=2.78MB cumulative
+[round 31] (FedMD mean) hamming=0.903 macro_f1=0.114 auroc=0.694 | 899.4s | comm=2.87MB cumulative
+[round 32] (FedMD mean) hamming=0.904 macro_f1=0.115 auroc=0.708 | 904.9s | comm=2.96MB cumulative
+[round 33] (FedMD mean) hamming=0.906 macro_f1=0.117 auroc=0.701 | 871.7s | comm=3.05MB cumulative
+[round 34] (FedMD mean) hamming=0.905 macro_f1=0.107 auroc=0.701 | 613.7s | comm=3.14MB cumulative
+[round 35] (FedMD mean) hamming=0.897 macro_f1=0.124 auroc=0.693 | 611.4s | comm=3.23MB cumulative
+[round 36] (FedMD mean) hamming=0.906 macro_f1=0.111 auroc=0.696 | 612.3s | comm=3.32MB cumulative
+[round 37] (FedMD mean) hamming=0.904 macro_f1=0.112 auroc=0.701 | 613.6s | comm=3.40MB cumulative
+[round 38] (FedMD mean) hamming=0.905 macro_f1=0.091 auroc=0.678 | 615.2s | comm=3.49MB cumulative
+[round 39] (FedMD mean) hamming=0.901 macro_f1=0.085 auroc=0.666 | 613.7s | comm=3.58MB cumulative
+
+total 29054.0s
+saved: /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/s2_fedmd_alpha0.1_c4_20260620_042223.csv
