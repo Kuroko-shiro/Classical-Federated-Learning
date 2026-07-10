@@ -1,78 +1,0 @@
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-results CSV -> /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/baseline_local_a0.1_c4_20260701_005423.csv
-device = mps  mode=local
-loading image cache: data/img_cache_224.pt
-  cached images: 7466
-[local] 4 clients train in ISOLATION then averaged
-  embed_dims=[256, 256, 256, 256]
-  modalities=[['image', 'text'], ['image', 'text'], ['image', 'text'], ['image', 'text']]
-  client sizes={0:1491, 1:449, 2:213, 3:357}
-Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9580.10it/s]
-[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
-Key                                        | Status     |  | 
--------------------------------------------+------------+--+-
-cls.seq_relationship.weight                | UNEXPECTED |  | 
-cls.seq_relationship.bias                  | UNEXPECTED |  | 
-cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
-cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
-cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
-cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
-cls.predictions.bias                       | UNEXPECTED |  | 
-
-Notes:
-- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
-  -- client 0: 1491 samples, embed=256, mods=['image', 'text']
-/Users/kiki472/lab/qfl-benchmark/scripts/../src/qflbench/models/iu_xray_torch_model.py:389: RuntimeWarning: overflow encountered in exp
-  probs = 1.0 / (1.0 + np.exp(-logits))
-     client 0: peak auroc=0.721 macro_f1=0.082  (final=0.649, LATE-DROP)
-Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 7012.47it/s]
-[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
-Key                                        | Status     |  | 
--------------------------------------------+------------+--+-
-cls.seq_relationship.weight                | UNEXPECTED |  | 
-cls.seq_relationship.bias                  | UNEXPECTED |  | 
-cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
-cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
-cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
-cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
-cls.predictions.bias                       | UNEXPECTED |  | 
-
-Notes:
-- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
-  -- client 1: 449 samples, embed=256, mods=['image', 'text']
-     client 1: peak auroc=0.799 macro_f1=0.273  (final=0.780, stable)
-Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 7121.42it/s]
-[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
-Key                                        | Status     |  | 
--------------------------------------------+------------+--+-
-cls.seq_relationship.weight                | UNEXPECTED |  | 
-cls.seq_relationship.bias                  | UNEXPECTED |  | 
-cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
-cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
-cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
-cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
-cls.predictions.bias                       | UNEXPECTED |  | 
-
-Notes:
-- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
-  -- client 2: 213 samples, embed=256, mods=['image', 'text']
-     client 2: peak auroc=0.757 macro_f1=0.331  (final=0.740, stable)
-Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 7104.63it/s]
-[transformers] [1mBertModel LOAD REPORT[0m from: bert-base-uncased
-Key                                        | Status     |  | 
--------------------------------------------+------------+--+-
-cls.seq_relationship.weight                | UNEXPECTED |  | 
-cls.seq_relationship.bias                  | UNEXPECTED |  | 
-cls.predictions.transform.LayerNorm.weight | UNEXPECTED |  | 
-cls.predictions.transform.dense.bias       | UNEXPECTED |  | 
-cls.predictions.transform.dense.weight     | UNEXPECTED |  | 
-cls.predictions.transform.LayerNorm.bias   | UNEXPECTED |  | 
-cls.predictions.bias                       | UNEXPECTED |  | 
-
-Notes:
-- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
-  -- client 3: 357 samples, embed=256, mods=['image', 'text']
-     client 3: peak auroc=0.696 macro_f1=0.110  (final=0.664, LATE-DROP)
-
-[LOCAL average] auroc=0.743 macro_f1=0.199  (lower bound, per-client peaks)
-total 19903.9s -> /Users/kiki472/lab/qfl-benchmark/scripts/../results/iu/baseline_local_a0.1_c4_20260701_005423.csv
