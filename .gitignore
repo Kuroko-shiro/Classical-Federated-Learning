@@ -1,6 +1,7 @@
 # Dataset
 data/
-
+logs/
+results/
 # Python
 __pycache__/
 *.pyc
