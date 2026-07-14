@@ -18,6 +18,6 @@ dependencies = [
 where = ["src"]
 
 [project.optional-dependencies]
-torch = ["torch>=2.0", "transformers>=4.30"]
+torch = ["torch>=2.0", "torchvision>=0.15", "transformers>=4.30", "pillow>=9.0"]
 quantum = ["qiskit>=1.0"]
 tracking = ["wandb"]
