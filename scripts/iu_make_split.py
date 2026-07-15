@@ -50,7 +50,7 @@ def main():
     ap.add_argument("--projections", required=True)
     ap.add_argument("--images", default="data/images/images_normalized",
                     help="only used to build manifest paths; not read here")
-    ap.add_argument("--alphas", type=float, nargs="+", default=[0.1, 1.0])
+    ap.add_argument("--alphas", type=float, nargs="+", default=[0.1, 1.0, 100.0])
     ap.add_argument("--clients", type=int, default=4)
     ap.add_argument("--out", default="splits/iu_split.json")
     args = ap.parse_args()
@@ -73,9 +73,11 @@ def main():
 
     out = {
         "meta": {
+            "schema_version": 2,
             "manifest_size": n, "recipe": MANIFEST_RECIPE,
             "public_size": PUBLIC_SIZE, "test_frac": TEST_FRAC,
             "split_seed": SPLIT_SEED, "clients": args.clients,
+            "validation_policy": "derived client-locally by qflbench.experiments.iu_protocol",
         },
         "public": public,
         "test": test,

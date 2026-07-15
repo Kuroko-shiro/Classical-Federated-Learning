@@ -1,5 +1,5 @@
-# Dataset
-data/
+# Dataset (repository-root artifacts only; do not hide src/qflbench/data/)
+/data/
 logs/
 results/
 # Python
