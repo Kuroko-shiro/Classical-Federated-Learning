@@ -127,6 +127,9 @@ if _TORCH:
             return self.txt(batch["input_ids"], batch["attention_mask"])
 
         def encode(self, batch) -> "torch.Tensor":
+            return self.encode_mode(batch, "auto")
+
+        def encode_mode(self, batch, mode: str = "auto") -> "torch.Tensor":
             """Mean-fuse embeddings over modalities ACTUALLY present in the batch.
             Uses the has_image/has_text flags (set by the dataset) rather than mere
             key presence, because unimodal clients still carry zero-filled text
@@ -140,24 +143,42 @@ if _TORCH:
                     return bool(f.reshape(-1)[0].item()) if f.numel() else False
                 return bool(f)
 
+            allowed = {"auto", "image_only", "text_only", "true_text", "min_text", "zero_text"}
+            if mode not in allowed:
+                raise ValueError(f"unknown modality mode {mode!r}")
             embs = []
             img_emb = None
-            if "image" in batch and _present("has_image"):
+            use_image = mode in {"image_only", "true_text", "min_text", "zero_text"}
+            use_image = use_image or (mode == "auto" and _present("has_image"))
+            if "image" in batch and use_image:
                 img_emb = self.img(batch["image"])
                 embs.append(img_emb)
             has_text_key = ("text_feat" in batch) or ("input_ids" in batch)
-            if has_text_key and _present("has_text"):
+            use_real_text = mode in {"text_only", "true_text"}
+            use_real_text = use_real_text or (
+                mode == "auto" and has_text_key and _present("has_text")
+            )
+            if has_text_key and use_real_text:
                 embs.append(self._text_embed(batch))
-            elif self.use_min and self.min_net is not None and img_emb is not None:
+            elif (
+                (mode == "min_text" or (mode == "auto" and self.use_min))
+                and self.min_net is not None and img_emb is not None
+            ):
                 # text genuinely missing + MIN enabled: synthesise pseudo-text
                 # embedding from the image embedding (pseudo-congruent MMFL)
-                embs.append(self.min_net(img_emb))
+                generated = self.min_net(img_emb)
+                self.last_min_activation_norm = float(
+                    generated.detach().norm(dim=1).mean().cpu()
+                )
+                embs.append(generated)
+            elif mode == "zero_text" and img_emb is not None:
+                embs.append(torch.zeros_like(img_emb))
             if not embs:
                 raise ValueError("no modality present in batch")
             return torch.stack(embs, dim=0).mean(dim=0)
 
-        def forward(self, batch):
-            z = self.encode(batch)
+        def forward(self, batch, modality_mode: str = "auto"):
+            z = self.encode_mode(batch, modality_mode)
             if self.proto is not None:
                 z = self.proto(z)
             return self.head(z)
@@ -217,10 +238,15 @@ class TorchMultimodalBackend:
         pseudo-text embedding. Image/text encoders are frozen during this step so
         only the MIN MLP is fit. No effect unless use_min=True."""
         if not self.net.use_min or self.net.min_net is None:
-            return
+            return {"gradient_norm": float("nan"), "update_norm": float("nan"),
+                    "zero_gradient_rate": float("nan"), "loss": float("nan")}
+        before = [parameter.detach().clone() for parameter in self.net.min_net.parameters()]
         self.net.train()
         opt = torch.optim.Adam(self.net.min_net.parameters(), lr=lr)
         loss_fn = nn.MSELoss()
+        gradient_sq = 0.0
+        zero_gradients = gradient_elements = 0
+        last = float("nan")
         for _ in range(epochs):
             for batch in loader:
                 b = self._to_device(batch)
@@ -231,7 +257,25 @@ class TorchMultimodalBackend:
                 loss = loss_fn(pred, txt_emb)
                 opt.zero_grad()
                 loss.backward()
+                for parameter in self.net.min_net.parameters():
+                    if parameter.grad is not None:
+                        gradient_sq += float(parameter.grad.detach().pow(2).sum().cpu())
+                        zero_gradients += int((parameter.grad.detach() == 0).sum().cpu())
+                        gradient_elements += parameter.grad.numel()
                 opt.step()
+                last = float(loss.detach().cpu())
+        update_sq = sum(
+            float((parameter.detach() - initial).pow(2).sum().cpu())
+            for parameter, initial in zip(self.net.min_net.parameters(), before)
+        )
+        return {
+            "gradient_norm": float(gradient_sq ** 0.5),
+            "update_norm": float(update_sq ** 0.5),
+            "zero_gradient_rate": (
+                zero_gradients / gradient_elements if gradient_elements else float("nan")
+            ),
+            "loss": last,
+        }
 
     # ---- parameter exchange (numpy at the boundary, like the mock backend) ----
     def _shared_modules(self):
@@ -268,6 +312,25 @@ class TorchMultimodalBackend:
                 sd[k] = torch.tensor(v, device=self.device)
         self.net.load_state_dict(sd, strict=False)
 
+    def get_min_parameters(self) -> Dict[str, np.ndarray]:
+        if self.net.min_net is None:
+            return {}
+        return {
+            key: value.detach().cpu().numpy()
+            for key, value in self.net.min_net.state_dict().items()
+        }
+
+    def set_min_parameters(self, params: Dict[str, np.ndarray]) -> None:
+        if self.net.min_net is None:
+            if params:
+                raise ValueError("backend has no MIN module")
+            return
+        state = self.net.min_net.state_dict()
+        for key, value in params.items():
+            if key in state:
+                state[key] = torch.as_tensor(value, device=self.device)
+        self.net.min_net.load_state_dict(state)
+
     # ---- batching helper ----
     def _to_device(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         out = {}
@@ -280,6 +343,13 @@ class TorchMultimodalBackend:
                     proximal_mu: float = 0.0, global_params=None,
                     extra=None) -> Dict[str, float]:
         self.net.train()
+        min_parameters = (
+            list(self.net.min_net.parameters()) if self.net.min_net is not None else []
+        )
+        min_before = [parameter.detach().clone() for parameter in min_parameters]
+        min_gradient_sq = 0.0
+        min_zero_gradients = min_gradient_elements = 0
+        min_activation_norms = []
         opt = torch.optim.AdamW(
             [p for p in self.net.parameters() if p.requires_grad], lr=lr)
         last = 0.0
@@ -299,9 +369,35 @@ class TorchMultimodalBackend:
                                          ** 2).sum()
                     loss = loss + 0.5 * proximal_mu * reg
                 loss.backward()
+                for parameter in min_parameters:
+                    if parameter.grad is not None:
+                        min_gradient_sq += float(parameter.grad.detach().pow(2).sum().cpu())
+                        min_zero_gradients += int((parameter.grad.detach() == 0).sum().cpu())
+                        min_gradient_elements += parameter.grad.numel()
+                activation = getattr(self.net, "last_min_activation_norm", None)
+                if activation is not None:
+                    min_activation_norms.append(float(activation))
                 opt.step()
                 last = float(loss.detach().cpu())
-        return {"loss": last}
+        metrics = {"loss": last}
+        if min_parameters:
+            update_sq = sum(
+                float((parameter.detach() - initial).pow(2).sum().cpu())
+                for parameter, initial in zip(min_parameters, min_before)
+            )
+            metrics.update({
+                "min_gradient_norm": float(min_gradient_sq ** 0.5),
+                "min_update_norm": float(update_sq ** 0.5),
+                "min_zero_gradient_rate": (
+                    min_zero_gradients / min_gradient_elements
+                    if min_gradient_elements else float("nan")
+                ),
+                "min_activation_norm": (
+                    float(np.mean(min_activation_norms))
+                    if min_activation_norms else float("nan")
+                ),
+            })
+        return metrics
 
     # ---- FedProto: proto-space training & per-label prototype statistics ----
     def local_train_proto(self, loader, epochs: int = 1, lr: float = 1e-4,
@@ -448,17 +544,65 @@ class TorchMultimodalBackend:
 
     # ---- evaluation (multi-label metrics) ----
     @torch.no_grad()
-    def evaluate(self, loader) -> Dict[str, float]:
-        from ..metrics.classification import multilabel_metrics
+    def prediction_arrays(self, loader, *, modality_mode: str = "auto"):
         self.net.eval()
         all_logits, all_y = [], []
         for batch in loader:
             b = self._to_device(batch)
-            all_logits.append(self.net(b).cpu().numpy())
+            all_logits.append(self.net(b, modality_mode=modality_mode).cpu().numpy())
             all_y.append(b["label"].cpu().numpy())
         if not all_logits:
-            return {"accuracy": 0.0, "macro_f1": 0.0, "auroc": 0.0, "auprc": 0.0}
+            return np.zeros((0, self._num_classes)), np.zeros((0, self._num_classes))
         logits = np.concatenate(all_logits, axis=0)
         y = np.concatenate(all_y, axis=0)
         probs = 1.0 / (1.0 + np.exp(-logits))
-        return multilabel_metrics(y, probs)
+        return y, probs
+
+    @torch.no_grad()
+    def evaluate(
+        self, loader, *, thresholds=None, rare_labels=None,
+        modality_mode: str = "auto",
+    ) -> Dict[str, float]:
+        from ..evaluation.metrics import multilabel_report
+
+        y, probs = self.prediction_arrays(loader, modality_mode=modality_mode)
+        if not len(y):
+            return {"accuracy": float("nan"), "macro_f1": float("nan"),
+                    "auroc": float("nan"), "auprc": float("nan")}
+        return multilabel_report(
+            y, probs, thresholds=thresholds, rare_labels=rare_labels,
+        )["summary"]
+
+    @torch.no_grad()
+    def min_reconstruction_diagnostics(self, loader) -> dict:
+        """Compare true and generated text embeddings on multimodal samples."""
+
+        if self.net.min_net is None:
+            raise ValueError("MIN diagnostics require use_min=True")
+        true_rows, generated_rows = [], []
+        self.net.eval()
+        for batch in loader:
+            b = self._to_device(batch)
+            image = self.net.img(b["image"])
+            true = self.net._text_embed(b)
+            generated = self.net.min_net(image)
+            true_rows.append(true.cpu().numpy())
+            generated_rows.append(generated.cpu().numpy())
+        true = np.concatenate(true_rows, axis=0)
+        generated = np.concatenate(generated_rows, axis=0)
+        eps = 1e-12
+        cosine = np.sum(true * generated, axis=1) / (
+            np.linalg.norm(true, axis=1) * np.linalg.norm(generated, axis=1) + eps
+        )
+        normalized_mse = np.mean((true - generated) ** 2, axis=1) / (
+            np.mean(true ** 2, axis=1) + eps
+        )
+        norm_ratio = np.linalg.norm(generated, axis=1) / (
+            np.linalg.norm(true, axis=1) + eps
+        )
+        return {
+            "samples": int(len(true)),
+            "cosine_similarity": float(np.mean(cosine)),
+            "normalized_mse": float(np.mean(normalized_mse)),
+            "embedding_norm_ratio": float(np.mean(norm_ratio)),
+        }

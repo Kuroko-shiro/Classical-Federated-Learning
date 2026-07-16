@@ -25,7 +25,7 @@ import numpy as np
 DEFAULT_TRAIN_SUBSET = 2510
 DEFAULT_TEST_SUBSET = 627
 DEFAULT_VAL_FRACTION = 0.1
-DEFAULT_VAL_SEED = 20260715
+DEFAULT_VAL_SEED = 0
 
 
 def _sha256_json(value: object) -> str:
@@ -44,6 +44,7 @@ class IUSplit:
     alpha: str
     val_fraction: float
     val_seed: int
+    val_strategy: str
 
     @property
     def train_size(self) -> int:
@@ -63,6 +64,7 @@ class IUSplit:
             "public_size": len(self.public),
             "val_fraction": self.val_fraction,
             "val_seed": self.val_seed,
+            "val_strategy": self.val_strategy,
             "train_client_sizes": {
                 str(cid): len(values) for cid, values in self.train_by_client.items()
             },
@@ -73,18 +75,34 @@ class IUSplit:
 
 
 def _client_train_validation(
-    indices: Iterable[int], val_fraction: float, seed: int
+    indices: Iterable[int], val_fraction: float, seed: int,
+    labels: Optional[np.ndarray] = None,
 ) -> tuple[list[int], list[int]]:
     values = np.asarray(sorted(int(i) for i in indices), dtype=int)
     if not len(values) or val_fraction == 0:
         return values.tolist(), []
-    rng = np.random.default_rng(seed)
-    rng.shuffle(values)
     n_val = int(round(len(values) * val_fraction))
     if len(values) > 1:
         n_val = min(max(n_val, 1), len(values) - 1)
     else:
         n_val = 0
+    if labels is not None and n_val:
+        try:
+            from iterstrat.ml_stratifiers import MultilabelStratifiedShuffleSplit
+
+            splitter = MultilabelStratifiedShuffleSplit(
+                n_splits=1, test_size=n_val, random_state=seed,
+            )
+            train_positions, val_positions = next(
+                splitter.split(np.zeros(len(values)), labels[values])
+            )
+            train = sorted(values[train_positions].tolist())
+            val = sorted(values[val_positions].tolist())
+            return train, val
+        except (ImportError, ValueError):
+            pass
+    rng = np.random.default_rng(seed)
+    rng.shuffle(values)
     val = sorted(values[:n_val].tolist())
     train = sorted(values[n_val:].tolist())
     return train, val
@@ -100,6 +118,7 @@ def load_iu_split(
     test_subset: Optional[int] = DEFAULT_TEST_SUBSET,
     val_fraction: float = DEFAULT_VAL_FRACTION,
     val_seed: int = DEFAULT_VAL_SEED,
+    labels: Optional[np.ndarray] = None,
     all_data: bool = False,
 ) -> IUSplit:
     """Load, validate and derive the Phase-0 train/validation/test protocol."""
@@ -157,7 +176,7 @@ def load_iu_split(
     val_by_client: Dict[int, list[int]] = {}
     for cid, values in source_parts.items():
         train, val = _client_train_validation(
-            values, val_fraction, val_seed + 1009 * cid
+            values, val_fraction, val_seed + 1009 * cid, labels=labels,
         )
         train_by_client[cid] = train
         val_by_client[cid] = val
@@ -188,6 +207,8 @@ def load_iu_split(
         alpha=alpha_key,
         val_fraction=float(val_fraction),
         val_seed=int(val_seed),
+        val_strategy=("multilabel_iterative_stratification" if labels is not None
+                      else "deterministic_random"),
     )
 
 
@@ -215,23 +236,48 @@ class CommunicationLedger:
     def __init__(self) -> None:
         self._round: Optional[int] = None
         self._round_rows: MutableMapping[tuple[int, str], int] = {}
+        self._serialized_round_rows: MutableMapping[tuple[int, str], int] = {}
+        self._events: list[dict] = []
         self.cumulative_upload_bytes = 0
         self.cumulative_download_bytes = 0
+        self.cumulative_serialized_upload_bytes = 0
+        self.cumulative_serialized_download_bytes = 0
 
     def start_round(self, round_index: int) -> None:
         if self._round is not None:
             raise RuntimeError("finish the current communication round first")
         self._round = int(round_index)
         self._round_rows = {}
+        self._serialized_round_rows = {}
+        self._events = []
 
-    def record(self, client_id: int, direction: str, payload: object) -> int:
+    def record(
+        self, client_id: int, direction: str, payload: object, *,
+        payload_type: str = "unspecified", metadata: Optional[Mapping[str, object]] = None,
+    ) -> int:
         if self._round is None:
             raise RuntimeError("start_round must be called before record")
         if direction not in {"upload", "download"}:
             raise ValueError("direction must be 'upload' or 'download'")
         size = payload_nbytes(payload)
+        from ..communication.payload import payload_metadata
+        from ..communication.serializer import serialized_payload_nbytes
+
+        serialized_size = serialized_payload_nbytes(payload)
         key = (int(client_id), direction)
         self._round_rows[key] = self._round_rows.get(key, 0) + size
+        self._serialized_round_rows[key] = (
+            self._serialized_round_rows.get(key, 0) + serialized_size
+        )
+        self._events.append({
+            "client_id": int(client_id),
+            "direction": direction,
+            "payload_type": str(payload_type),
+            "logical_tensor_bytes": size,
+            "serialized_payload_bytes": serialized_size,
+            **payload_metadata(payload),
+            "metadata": dict(metadata or {}),
+        })
         return size
 
     def finish_round(self) -> dict:
@@ -239,9 +285,21 @@ class CommunicationLedger:
             raise RuntimeError("no active communication round")
         upload = sum(v for (cid, direction), v in self._round_rows.items() if direction == "upload")
         download = sum(v for (cid, direction), v in self._round_rows.items() if direction == "download")
+        serialized_upload = sum(
+            v for (cid, direction), v in self._serialized_round_rows.items()
+            if direction == "upload"
+        )
+        serialized_download = sum(
+            v for (cid, direction), v in self._serialized_round_rows.items()
+            if direction == "download"
+        )
         self.cumulative_upload_bytes += upload
         self.cumulative_download_bytes += download
+        self.cumulative_serialized_upload_bytes += serialized_upload
+        self.cumulative_serialized_download_bytes += serialized_download
         clients = sorted({cid for cid, _ in self._round_rows})
+        from ..communication.qkd_accounting import qkd_key_budget
+
         result = {
             "round": self._round,
             "upload_bytes": upload,
@@ -250,16 +308,31 @@ class CommunicationLedger:
             "cumulative_upload_bytes": self.cumulative_upload_bytes,
             "cumulative_download_bytes": self.cumulative_download_bytes,
             "cumulative_total_bytes": self.cumulative_upload_bytes + self.cumulative_download_bytes,
+            "serialized_upload_bytes": serialized_upload,
+            "serialized_download_bytes": serialized_download,
+            "serialized_total_bytes": serialized_upload + serialized_download,
+            "cumulative_serialized_upload_bytes": self.cumulative_serialized_upload_bytes,
+            "cumulative_serialized_download_bytes": self.cumulative_serialized_download_bytes,
+            "cumulative_serialized_total_bytes": (
+                self.cumulative_serialized_upload_bytes
+                + self.cumulative_serialized_download_bytes
+            ),
             "clients": {
                 str(cid): {
                     "upload_bytes": self._round_rows.get((cid, "upload"), 0),
                     "download_bytes": self._round_rows.get((cid, "download"), 0),
+                    "serialized_upload_bytes": self._serialized_round_rows.get((cid, "upload"), 0),
+                    "serialized_download_bytes": self._serialized_round_rows.get((cid, "download"), 0),
                 }
                 for cid in clients
             },
+            "payloads": list(self._events),
+            "qkd_otp": qkd_key_budget(serialized_upload + serialized_download),
         }
         self._round = None
         self._round_rows = {}
+        self._serialized_round_rows = {}
+        self._events = []
         return result
 
 

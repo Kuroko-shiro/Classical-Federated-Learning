@@ -26,7 +26,12 @@ from qflbench.experiments.iu_protocol import (
     load_checkpoint,
     load_iu_split,
 )
-from qflbench.experiments.iu_runtime import RunArtifacts
+from qflbench.experiments.iu_runtime import (
+    RunArtifacts,
+    canonical_client_evaluation,
+    mean_metrics,
+    rare_labels_from_manifest,
+)
 from qflbench.models.base import weighted_average
 from qflbench.models.iu_xray_torch_model import TorchMultimodalBackend, pick_device
 
@@ -106,6 +111,7 @@ def main():
         clients=args.clients, train_subset=args.train_subset,
         test_subset=args.test_subset, val_fraction=args.val_fraction,
         val_seed=args.val_seed,
+        labels=np.stack([item["label"] for item in manifest]),
     )
     part = protocol.train_by_client
     print("protocol:", protocol.provenance())
@@ -120,14 +126,30 @@ def main():
 
     img_cache = torch.load(args.img_cache) if args.img_cache else None
     tok = AutoTokenizer.from_pretrained(args.text_model)
-    val_loader = make_loader(
+    val_loaders = {
+        cid: make_loader(
+            manifest, protocol.validation, tok, args.img_size, args.batch, False,
+            client_mods[cid], img_cache=img_cache, num_workers=args.num_workers,
+        )
+        for cid in range(args.clients)
+    }
+    test_loaders = {
+        cid: make_loader(
+            manifest, protocol.test, tok, args.img_size, args.batch, False,
+            client_mods[cid], img_cache=img_cache, num_workers=args.num_workers,
+        )
+        for cid in range(args.clients)
+    }
+    audit_loader = make_loader(
         manifest, protocol.validation, tok, args.img_size, args.batch, False,
         ["image", "text"], img_cache=img_cache, num_workers=args.num_workers,
     )
-    test_loader = make_loader(
-        manifest, protocol.test, tok, args.img_size, args.batch, False,
-        ["image", "text"], img_cache=img_cache, num_workers=args.num_workers,
-    )
+    train_pool = sorted({
+        index
+        for values in list(protocol.train_by_client.values()) + list(protocol.val_by_client.values())
+        for index in values
+    })
+    rare_labels = rare_labels_from_manifest(manifest, train_pool)
     # Public data replaces the former test-set LOOT probe.  Test features must
     # never influence training, even when labels are not read.
     public_loaders = {
@@ -182,20 +204,22 @@ def main():
                 raise RuntimeError("MIN requires at least one multimodal client")
             ledger.start_round(-1)
             min_states = []
+            pretrain_diagnostics = []
             for ctx, backend, loader in multimodal_clients:
-                backend.pretrain_min(loader, epochs=args.min_epochs, lr=1e-3)
+                diagnostic = backend.pretrain_min(loader, epochs=args.min_epochs, lr=1e-3)
+                pretrain_diagnostics.append({"client_id": ctx.client_id, **diagnostic})
                 state = {
                     key: value.detach().cpu().numpy()
                     for key, value in backend.net.min_net.state_dict().items()
                 }
-                ledger.record(ctx.client_id, "upload", state)
+                ledger.record(ctx.client_id, "upload", state, payload_type="min_parameter")
                 min_states.append(state)
             average_min = {
                 key: np.mean([state[key] for state in min_states], axis=0)
                 for key in min_states[0]
             }
             for ctx, backend, _ in clients:
-                ledger.record(ctx.client_id, "download", average_min)
+                ledger.record(ctx.client_id, "download", average_min, payload_type="min_parameter")
                 state = backend.net.min_net.state_dict()
                 for key in state:
                     state[key] = torch.tensor(average_min[key], device=backend.device)
@@ -207,18 +231,33 @@ def main():
             pretrain_comm = ledger.finish_round()
             pretrain_comm["phase"] = "min_pretraining"
             artifacts.log_communication(pretrain_comm)
+            artifacts.write_json(
+                "diagnostics/min_pretraining.json", pretrain_diagnostics,
+            )
+            artifacts.write_json(
+                "diagnostics/min_reconstruction.json",
+                global_backend.min_reconstruction_diagnostics(audit_loader),
+            )
 
         gp = global_backend.get_parameters(only_shared=True)
         for round_index in range(args.rounds):
             lap = time.time()
             ledger.start_round(round_index)
             updates, weights = [], []
+            min_round = []
             for ctx, backend, loader in clients:
-                ledger.record(ctx.client_id, "download", gp)
+                ledger.record(ctx.client_id, "download", gp, payload_type="full_parameter")
                 backend.set_parameters(gp, only_shared=True)
-                backend.local_train(loader, epochs=args.local_epochs, lr=args.lr)
+                train_metrics = backend.local_train(
+                    loader, epochs=args.local_epochs, lr=args.lr,
+                )
+                if use_min:
+                    min_round.append({"client_id": ctx.client_id, **{
+                        key: value for key, value in train_metrics.items()
+                        if key.startswith("min_")
+                    }})
                 update = backend.get_parameters(only_shared=True)
-                ledger.record(ctx.client_id, "upload", update)
+                ledger.record(ctx.client_id, "upload", update, payload_type="full_parameter")
                 updates.append(update)
                 weights.append(ctx.num_train)
             gp = weighted_average(updates, weights)
@@ -227,40 +266,75 @@ def main():
             if args.method == "loot":
                 embeddings = []
                 for ctx, backend, _ in clients:
-                    ledger.record(ctx.client_id, "download", gp)
+                    ledger.record(ctx.client_id, "download", gp, payload_type="full_parameter")
                     backend.set_parameters(gp, only_shared=True)
                     client_embeddings = backend.embed(public_loaders[ctx.client_id])
-                    ledger.record(ctx.client_id, "upload", client_embeddings)
+                    ledger.record(ctx.client_id, "upload", client_embeddings, payload_type="embedding")
                     embeddings.append(client_embeddings)
                 stacked = np.stack(embeddings, axis=0)
                 aligned_updates = []
                 for position, (ctx, backend, _) in enumerate(clients):
                     teacher = np.delete(stacked, position, axis=0).mean(axis=0)
-                    ledger.record(ctx.client_id, "download", teacher)
+                    ledger.record(ctx.client_id, "download", teacher, payload_type="embedding")
                     backend.align_embeddings(
                         public_loaders[ctx.client_id], teacher, epochs=1, lr=args.lr
                     )
                     update = backend.get_parameters(only_shared=True)
-                    ledger.record(ctx.client_id, "upload", update)
+                    ledger.record(ctx.client_id, "upload", update, payload_type="full_parameter")
                     aligned_updates.append(update)
                 gp = weighted_average(aligned_updates, weights)
                 global_backend.set_parameters(gp, only_shared=True)
 
-            validation = global_backend.evaluate(val_loader)
+            validation_rows = []
+            for ctx, backend, _ in clients:
+                backend.set_parameters(gp, only_shared=True)
+                validation_rows.append(backend.evaluate(val_loaders[ctx.client_id]))
+            validation = mean_metrics(validation_rows)
             communication = ledger.finish_round()
             artifacts.log_validation(
                 round_index, validation, time.time() - lap, communication,
             )
+            checkpoint_models = {"global": gp}
+            if use_min:
+                checkpoint_models.update({
+                    f"min_client_{ctx.client_id}": backend.get_min_parameters()
+                    for ctx, backend, _ in clients
+                })
+                artifacts.append_jsonl(
+                    "diagnostics/min_training.jsonl",
+                    {"round": round_index, "clients": min_round},
+                )
             checkpoint.update(
-                round_index, validation, {"global": gp}, metadata=checkpoint_meta,
+                round_index, validation, checkpoint_models, metadata=checkpoint_meta,
             )
             print(f"[R{round_index:02d}] val_auroc={validation['auroc']:.4f} "
                   f"comm={communication['cumulative_total_bytes']/1e6:.1f}MB")
 
         selected, models, _ = load_checkpoint(str(artifacts.checkpoint_path))
-        global_backend.set_parameters(models["global"], only_shared=True)
-        test_metrics = global_backend.evaluate(test_loader)
-        artifacts.write_test(metrics=test_metrics, checkpoint_metadata=selected)
+        gp = models["global"]
+        evaluation_rows = []
+        for ctx, backend, _ in clients:
+            backend.set_parameters(gp, only_shared=True)
+            if use_min:
+                backend.set_min_parameters(models[f"min_client_{ctx.client_id}"])
+            evaluation_rows.append((
+                ctx.client_id, backend, val_loaders[ctx.client_id],
+                test_loaders[ctx.client_id],
+            ))
+        test_metrics, details = canonical_client_evaluation(
+            evaluation_rows, rare_labels=rare_labels,
+        )
+        if use_min:
+            audit_backend = clients[0][1]
+            details["modality_ablation"] = {
+                mode: audit_backend.evaluate(
+                    audit_loader, rare_labels=rare_labels, modality_mode=mode,
+                )
+                for mode in ("image_only", "true_text", "min_text", "zero_text", "text_only")
+            }
+        artifacts.write_test(
+            metrics=test_metrics, checkpoint_metadata=selected, details=details,
+        )
         print(f"selected round={selected['best_round']} "
               f"val_auroc={selected['best_validation_metrics']['auroc']:.4f}")
         print(f"test_auroc={test_metrics['auroc']:.4f} (single full-test evaluation)")

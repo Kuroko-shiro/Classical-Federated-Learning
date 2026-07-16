@@ -117,6 +117,11 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(row["upload_bytes"], 28)
         self.assertEqual(row["download_bytes"], 16)
         self.assertEqual(row["clients"]["1"]["upload_bytes"], 4)
+        self.assertGreater(row["serialized_total_bytes"], row["total_bytes"])
+        self.assertEqual(
+            row["qkd_otp"]["required_key_bits"],
+            8 * row["serialized_total_bytes"],
+        )
 
     def test_best_checkpoint_uses_validation_metric(self):
         with tempfile.TemporaryDirectory() as tmp:

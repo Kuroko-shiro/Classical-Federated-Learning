@@ -12,6 +12,7 @@ dependencies = [
     "scipy>=1.10",
     "scikit-learn>=1.2",
     "pandas>=1.5",
+    "iterative-stratification>=0.1.9",
 ]
 
 [tool.setuptools.packages.find]
