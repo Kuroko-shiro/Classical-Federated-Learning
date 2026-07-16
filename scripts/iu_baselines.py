@@ -26,7 +26,12 @@ from qflbench.experiments.iu_protocol import (
     load_checkpoint,
     load_iu_split,
 )
-from qflbench.experiments.iu_runtime import RunArtifacts, mean_metrics
+from qflbench.experiments.iu_runtime import (
+    RunArtifacts,
+    canonical_backend_evaluation,
+    canonical_client_evaluation,
+    rare_labels_from_manifest,
+)
 from qflbench.models.iu_xray_torch_model import TorchMultimodalBackend, pick_device
 
 
@@ -125,8 +130,15 @@ def main():
         clients=args.clients, train_subset=args.train_subset,
         test_subset=args.test_subset, val_fraction=args.val_fraction,
         val_seed=args.val_seed,
+        labels=np.stack([item["label"] for item in manifest]),
     )
     print("protocol:", protocol.provenance())
+    train_pool = sorted({
+        index
+        for values in list(protocol.train_by_client.values()) + list(protocol.val_by_client.values())
+        for index in values
+    })
+    rare_labels = rare_labels_from_manifest(manifest, train_pool)
     img_cache = torch.load(args.img_cache) if args.img_cache else None
     tok = AutoTokenizer.from_pretrained(args.text_model)
     test_loader = make_loader(
@@ -186,8 +198,13 @@ def main():
                     print(f"[E{epoch:02d}] val_auroc={validation['auroc']:.4f} lr={lr:.2e}")
             selected, models, _ = load_checkpoint(str(artifacts.checkpoint_path))
             backend.set_parameters(models["global"], only_shared=True)
-            test_metrics = backend.evaluate(test_loader)
-            artifacts.write_test(metrics=test_metrics, checkpoint_metadata=selected)
+            report = canonical_backend_evaluation(
+                backend, val_loader, test_loader, rare_labels=rare_labels,
+            )
+            test_metrics = report["test"]["summary"]
+            artifacts.write_test(
+                metrics=test_metrics, checkpoint_metadata=selected, details=report,
+            )
             print(f"centralized C={test_metrics['auroc']:.4f} selected_epoch={selected['best_round']}")
 
         else:
@@ -199,7 +216,7 @@ def main():
                 raise ValueError("the current heterogeneous-width recipe supports up to four clients")
             modalities = client_modalities(args.clients, args.mm_ratio)
             selected_clients = []
-            test_rows = []
+            evaluation_rows = []
             for cid in range(args.clients):
                 ctx = _Ctx(
                     cid, 14, modalities[cid], len(protocol.train_by_client[cid])
@@ -216,8 +233,13 @@ def main():
                 )
                 val_loader = make_loader(
                     manifest, protocol.val_by_client[cid], tok,
-                    args.img_size, args.batch, False, ["image", "text"],
+                    args.img_size, args.batch, False, modalities[cid],
                     img_cache=img_cache, num_workers=args.num_workers,
+                )
+                client_test_loader = make_loader(
+                    manifest, protocol.test, tok, args.img_size, args.batch,
+                    False, modalities[cid], img_cache=img_cache,
+                    num_workers=args.num_workers,
                 )
                 client_checkpoint = BestCheckpoint(
                     str(artifacts.run_dir / f"best_validation_client_{cid}.npz"),
@@ -247,15 +269,18 @@ def main():
                         )
                 selected, models, _ = load_checkpoint(str(client_checkpoint.path))
                 backend.set_parameters(models["client"], only_shared=True)
-                client_test = backend.evaluate(test_loader)
                 selected_clients.append(selected)
-                test_rows.append(client_test)
-                print(f"client={cid} selected_epoch={selected['best_round']} "
-                      f"test_auroc={client_test['auroc']:.4f}")
-            test_metrics = mean_metrics(test_rows)
+                evaluation_rows.append((cid, backend, val_loader, client_test_loader))
+            test_metrics, details = canonical_client_evaluation(
+                evaluation_rows, rare_labels=rare_labels,
+            )
+            for selected, report in zip(selected_clients, details["per_client"]):
+                print(f"client={report['client_id']} selected_epoch={selected['best_round']} "
+                      f"test_auroc={report['test']['summary']['auroc']:.4f}")
             artifacts.write_test(
                 metrics=test_metrics,
                 checkpoint_metadata={"per_client": selected_clients},
+                details=details,
             )
             print(f"local lower bound={test_metrics['auroc']:.4f} (mean of validation-selected clients)")
 

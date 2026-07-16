@@ -49,11 +49,11 @@ python scripts/iu_cache_images.py \
 |---|---|
 | frozen split | `splits/iu_split.json` |
 | train pool | 2,510件 |
-| validation | client partitionごとに10%を固定抽出（既定seed `20260715`） |
+| validation | client partitionごとに10%を固定抽出（既定seed `0`） |
 | test | 627件すべて |
 | checkpoint選択 | validation macro-AUROC 最大 |
 | test利用 | 選択済みcheckpointに対して最後に1回のみ |
-| 通信量 | 実payload bytesをupload/download・client別に記録 |
+| 通信量 | logical/serialized payload bytesをupload/download・client別に記録 |
 
 旧実装の「test trajectoryからpeakを選ぶ」「③だけ627件、他は300件」問題は解消済み。
 

@@ -40,9 +40,22 @@ def main():
             continue
         config = json.loads(config_path.read_text(encoding="utf-8"))
         test = json.loads(test_path.read_text(encoding="utf-8"))
+        communication_path = test_path.parent / "communication.jsonl"
+        communication = None
+        if communication_path.exists():
+            records = [
+                json.loads(line) for line in communication_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            if records:
+                communication = records[-1].get(
+                    "cumulative_serialized_total_bytes",
+                    records[-1].get("cumulative_total_bytes"),
+                )
         grouped[group_key(config)].append({
             "seed": config["config"].get("seed", 0),
             "metrics": test["metrics"],
+            "serialized_communication_bytes": communication,
             "run_dir": str(test_path.parent),
         })
 
@@ -52,8 +65,15 @@ def main():
         seeds = [run["seed"] for run in runs]
         if len(seeds) != len(set(seeds)):
             raise RuntimeError(f"duplicate seed in group {key}: {seeds}")
-        for metric in ("auroc", "macro_f1", "auprc"):
-            values = np.asarray([run["metrics"][metric] for run in runs], dtype=float)
+        metric_names = (
+            "auroc", "auprc", "macro_f1_val_optimized",
+            "macro_f1_threshold_0.5", "rare_label_macro_f1",
+        )
+        for metric in metric_names:
+            available = [run["metrics"].get(metric) for run in runs]
+            if not all(value is not None for value in available):
+                continue
+            values = np.asarray(available, dtype=float)
             mean = float(values.mean())
             std = float(values.std(ddof=1)) if len(values) > 1 else 0.0
             half = float(t.ppf(0.975, len(values) - 1) * std / np.sqrt(len(values))) if len(values) > 1 else 0.0
@@ -62,6 +82,21 @@ def main():
                 "alpha": alpha, "mm_ratio": ratio,
                 "embed_dims": "-".join(str(value) for value in embed_dims),
                 "metric": metric, "n": len(values), "seeds": ",".join(map(str, sorted(seeds))),
+                "mean": mean, "std": std,
+                "ci95_low": mean - half, "ci95_high": mean + half,
+            })
+        communication_values = [run["serialized_communication_bytes"] for run in runs]
+        if all(value is not None for value in communication_values):
+            values = np.asarray(communication_values, dtype=float)
+            mean = float(values.mean())
+            std = float(values.std(ddof=1)) if len(values) > 1 else 0.0
+            half = float(t.ppf(0.975, len(values) - 1) * std / np.sqrt(len(values))) if len(values) > 1 else 0.0
+            rows.append({
+                "mode": mode, "scenario": scenario, "method": method,
+                "alpha": alpha, "mm_ratio": ratio,
+                "embed_dims": "-".join(str(value) for value in embed_dims),
+                "metric": "serialized_communication_bytes", "n": len(values),
+                "seeds": ",".join(map(str, sorted(seeds))),
                 "mean": mean, "std": std,
                 "ci95_low": mean - half, "ci95_high": mean + half,
             })

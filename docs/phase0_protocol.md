@@ -1,126 +1,208 @@
-# Phase 0: 評価基盤の固定と古典ベンチマーク再確定
+# Revised Phase 0: classical audit and pathway diagnosis
 
-更新日: 2026-07-15
+Updated: 2026-07-16
 
-Phase 0の目的は、low-rank/QFL実装へ進む前に、IU X-ray古典ベンチマークを
-査読に耐える評価手順へ固定することである。旧test trajectoryの最大値は主結果に使わない。
+Phase 0 now has three tracks. It does not introduce a new final method.
 
-## 固定事項
+- **P0-A**: reproducible evaluation and communication audit
+- **P0-M**: diagnose why MIN did not improve HeteroFL
+- **P0-N**: diagnose the α=0.1 client-drift collapse
 
-| 項目 | 値 |
+The outcome is a frozen handoff for backbone-wide low-rank/quantized MMFL in
+Phase 1 and a shared-update-subspace design requirement for Phase 2.
+
+## Frozen benchmark
+
+| item | canonical value |
 |---|---|
-| split | `splits/iu_split.json`, split seed 0 |
-| public | 200件。FedMD/LOOTのみに利用 |
-| train pool | 2,510件 |
-| validation | 各client partitionの10%、seed `20260715` |
-| test | 627件すべて |
+| dataset | IU X-ray, manifest 3,337 |
+| split | train pool 2,510 / public 200 / test 627 |
 | clients | 4 |
-| rounds/local epochs | 40 / 2 |
-| optimizer | AdamW, lr `1e-4` |
-| centralized | 40 epochs, lr `3e-5` |
-| selection | validation macro-AUROC最大 |
-| primary result | 選択checkpointのtest macro-AUROC |
-| seeds | 0, 1, 2（mean ± SD、95% CI） |
+| split seed | 0 |
+| local validation | 10%, validation seed 0 |
+| train seeds | 0, 1, 2 for the specified multi-seed comparisons |
+| checkpoint selection | mean-client validation macro-AUROC |
+| test policy | one pass after checkpoint selection |
+| primary metric | macro-AUROC |
+| important secondary metrics | macro-AUPRC, macro-F1 |
+| rare labels | bottom quartile by train positive count, frozen before test |
 
-validationは既存のclient partitionから決定的に導出する。既定10%の場合、
-train 2,259件、validation 251件となる。public/testとの重複は起動時に検査する。
+Public data is reserved for public-anchor methods such as FedMD/LOOT and is not
+used as validation data.
 
-## 出力
+## Canonical metric policy
 
-各runは `results/iu/<run_name>_<timestamp>/` に次を保存する。
+For each disease label, an F1 threshold is fitted on validation only and then
+held fixed on test:
 
-- `config.json`: 全引数、git commit、split SHA-256、各集合の件数
-- `validation.csv`: round別validation指標
-- `communication.jsonl`: round・方向・client別の実payload bytes
-- `best_validation.npz`: validationで選択したモデル
-- `test.json`: test一回評価の結果と選択round
+\[
+\tau_k^*=\arg\max_\tau F1_k^{val}(\tau).
+\]
 
-## 実行順序
+Every `test.json` stores both:
 
-共通引数を以下とする。
+- `macro_f1_val_optimized`
+- `macro_f1_threshold_0.5`
+
+It also stores macro/micro AUROC, AUPRC and F1, rare-label macro-F1,
+bottom-three/worst-label F1, per-label precision/recall/F1/AUPRC, thresholds and
+the number of evaluable labels. A label without both positive and negative
+examples is NaN and is excluded from a macro average; it is never replaced by
+0.5 or 0.
+
+## P0-A: audit commands
+
+Install from the repository root:
 
 ```bash
-COMMON="--reports data/indiana_reports.csv \
---projections data/indiana_projections.csv \
---images data/images/images_normalized \
---img-cache data/img_cache_224.pt --split splits/iu_split.json \
---clients 4 --rounds 40 --train-subset 2510 --test-subset 627 \
---val-fraction 0.1 --val-seed 20260715 \
---local-epochs 2 --batch 8 --num-workers 2"
+python -m pip install -e '.[torch]'
 ```
 
-### P−1: 共通評価による主要比較
-
-各コマンドは `seed=0,1,2` で実行する。
+Create environment and data/split audit artifacts:
 
 ```bash
-for SEED in 0 1 2; do
-  caffeinate -dimsu python scripts/iu_federated.py $COMMON \
-    --scenario 1 --method fedavg --alpha 100 --seed $SEED
-
-  caffeinate -dimsu python scripts/iu_federated.py $COMMON \
-    --scenario 2 --method heterofl --alpha 100 --seed $SEED
-
-  caffeinate -dimsu python scripts/iu_federated_s4.py $COMMON \
-    --method fedmd --mm-ratio 1:3 --alpha 100 --seed $SEED
-
-  caffeinate -dimsu python scripts/iu_federated_s4.py $COMMON \
-    --method heterofl --mm-ratio 1:3 --alpha 100 --seed $SEED
-
-  caffeinate -dimsu python scripts/iu_federated_s4.py $COMMON \
-    --method heterofl --mm-ratio 1:3 --alpha 0.1 --seed $SEED
-done
-```
-
-### P0: centralized上限
-
-```bash
-for SEED in 0 1 2; do
-  caffeinate -dimsu python scripts/iu_baselines.py \
-    --reports data/indiana_reports.csv \
-    --projections data/indiana_projections.csv \
-    --images data/images/images_normalized \
-    --img-cache data/img_cache_224.pt --split splits/iu_split.json \
-    --mode centralized --clients 4 --alpha 100 --epochs 40 --eval-every 1 \
-    --lr 3e-5 --train-subset 2510 --test-subset 627 \
-    --val-fraction 0.1 --val-seed 20260715 --batch 8 --seed $SEED
-done
-```
-
-Local下限は対象条件ごとに取得する。α、幅異種、モダリティ比を使い回さない。
-
-```bash
-python scripts/iu_baselines.py ... --mode local --alpha 100 \
-  --vary-embed --mm-ratio 1:3 --epochs 80 --eval-every 2 --seed 0
-```
-
-### 集計
-
-```bash
-python scripts/iu_summarize_runs.py \
-  --results-root results/iu --output results/iu/phase0_summary.csv
-```
-
-保存済みPhase 0 checkpointを別実行で再評価する場合:
-
-```bash
-python scripts/iu_evaluate_checkpoint.py \
-  --checkpoint results/iu/<run>/best_validation.npz \
+python scripts/iu_phase0_audit.py \
   --reports data/indiana_reports.csv \
   --projections data/indiana_projections.csv \
   --images data/images/images_normalized \
-  --img-cache data/img_cache_224.pt --test-subset 627
+  --split splits/iu_split.json \
+  --img-cache data/img_cache_224.pt
 ```
+
+This writes `environment/` and `results/phase0/data_audit/`. Dataset, split and
+cache hashes, overlap checks, client counts and label prevalence are recorded.
+
+Canonical runners write:
+
+```text
+results/iu/<run>/
+├── config.json
+├── validation.csv
+├── communication.jsonl
+├── best_validation.npz
+├── test.json
+└── diagnostics/
+```
+
+Communication records contain logical tensor bytes and canonical tensor-serialized
+serialized payload bytes, separated by upload/download, client, round, dtype and
+payload type. `qkd_otp` converts serialized encrypted bytes to required OTP key
+bits and key-generation time at 10/50/100 kbps and 1 Mbps.
+
+After runs finish, build the registry and summary:
+
+```bash
+python scripts/iu_build_registry.py \
+  --results-root results/iu --output results/phase0
+
+python scripts/iu_summarize_runs.py \
+  --results-root results/iu --output results/phase0/canonical_summary.csv
+```
+
+The 627-study legacy reevaluation set is:
+
+- Scenario 1: FedAvg α=100/0.1; homogeneous FedMD α=100
+- Scenario 2: HeteroFL α=100/0.1; FedMD/FedProto α=100
+- Scenario 3: FedAvg 1:3 α=100
+- Scenario 4: HeteroFL 1:3 α=100/0.1; FedMD and FedMD+LOOT 1:3 α=100
+- centralized lr=3e-5
+
+Legacy trajectory peak/conv is diagnostic only. Canonical scores always come
+from validation-selected checkpoints.
+
+## P0-M: MIN pathway audit
+
+Use Scenario 4 HeteroFL with the following controls:
+
+| ID | embed dims | MIN |
+|---|---|---|
+| M0 | 128 256 192 320 | off |
+| M1 | 320 256 192 128 | off |
+| M2 | 320 256 192 128 | on |
+| M3 | 320 320 320 320 | on |
+
+Example commands (append the common dataset/split/batch arguments):
+
+```bash
+# M0
+python scripts/iu_federated_s4.py --method heterofl --mm-ratio 1:3 \
+  --alpha 100 --embed-dims 128 256 192 320 --diagnostics ...
+
+# M1
+python scripts/iu_federated_s4.py --method heterofl --mm-ratio 1:3 \
+  --alpha 100 --embed-dims 320 256 192 128 --diagnostics ...
+
+# M2
+python scripts/iu_federated_s4.py --method heterofl --mm-ratio 1:3 \
+  --alpha 100 --embed-dims 320 256 192 128 --use-min --diagnostics ...
+
+# M3
+python scripts/iu_federated_s4.py --method heterofl --mm-ratio 1:3 \
+  --alpha 100 --embed-dims 320 320 320 320 --use-min --diagnostics ...
+```
+
+`M2-M1` is the pure MIN effect. The maximum-width client must be multimodal so
+the learned MIN can be sliced into narrower clients. MIN is local and excluded
+from HeteroFL aggregation, but its state is saved at the validation-selected
+checkpoint.
+
+MIN diagnostics record:
+
+- pretraining and per-round gradient/update norm
+- zero-gradient rate and activation norm
+- true/generated embedding cosine, normalized MSE and norm ratio
+- image-only, text-only, true-text, MIN-text and zero-text ablation
+
+Full FedRecon is not a Phase 0 primary method. Two-stage MIN and frozen-global
+MIN are follow-up diagnostics only if M0-M3 leave the cause unresolved.
+
+## P0-N: non-IID drift audit
+
+Run the same HeteroFL configuration at α=100 and α=0.1 with `--diagnostics`.
+Each round stores update norm, cosine to global update, pairwise update cosine
+and aggregation cancellation ratio.
+
+Minimum diagnostic ablations are:
+
+| ID | local epochs | correction |
+|---|---:|---|
+| N0 | 2 | none |
+| N1 | 1 | none |
+| N2 | 2 | FedProx, one fixed μ (where model shape permits) |
+| N3 | 2 | validation-selected early stopping |
+
+No large hyperparameter sweep is part of Phase 0. Partition reports separate
+quantity skew, label skew and positive scarcity. Rare-label and per-client
+trajectories determine where the collapse begins.
+
+## Multi-seed scope
+
+Minimum three-seed comparisons in the revised plan are:
+
+- Scenario 2 HeteroFL α=100
+- Scenario 2 FedMD α=100
+- Scenario 4 HeteroFL 1:3 α=100
+- Scenario 4 FedMD 1:3 α=100
+
+Scenario 2/4 HeteroFL α=0.1 and Local α=0.1 should be added when time permits.
+This replaces the former interpretation that every diagnostic cell must be run
+at all three seeds. Diagnostic M/N ablations may first be run at seed 0; confirm
+the selected conclusion at additional seeds if it changes the Phase 1 choice.
 
 ## Definition of Done
 
-- 主要比較が3 seedsすべて完走している
-- 全runでtest sizeが627、split hashが同一である
-- best roundがvalidationだけで選択されている
-- testは各seed・各runにつき1回だけである
-- upload/download、client別、累積byteが欠損していない
-- centralized `C` と各条件のLocal下限が確定している
-- `phase0_summary.csv` にmean、SD、95% CIが出力されている
-- 旧peak/conv値は「historical/補助解析」と明示されている
+- package import and environment reconstruction succeed
+- dataset/split/cache hashes and split integrity are frozen
+- all important runs are registered as canonical, legacy or invalid
+- all stated legacy comparisons use the same 627-study test set
+- validation-selected evaluation and validation-fitted F1 thresholds work
+- macro-AUROC/AUPRC/F1 and rare/per-label metrics are present
+- serialized upload/download bytes and QKD accounting are present
+- centralized C and canonical HeteroFL/FedMD/Local scores are fixed
+- M0-M3 separate MIN from width reassignment and slicing
+- MIN update path and modality ablation identify at least one failure hypothesis
+- α=100/0.1 update drift and local-epoch-1 diagnostic are compared
+- the rare-label collapse location is identified
+- `docs/phase0_handoff.md` records the Phase 1 multimodal and non-IID decision
 
-ここまでを満たした後、Phase 1のbackbone-wide low-rank（同一rank/異種rank）へ進む。
+Only after these checks is Phase 0 tagged and frozen.

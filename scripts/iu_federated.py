@@ -31,7 +31,13 @@ from qflbench.experiments.iu_protocol import (
     load_checkpoint,
     load_iu_split,
 )
-from qflbench.experiments.iu_runtime import RunArtifacts, mean_metrics
+from qflbench.experiments.iu_runtime import (
+    RunArtifacts,
+    canonical_backend_evaluation,
+    canonical_client_evaluation,
+    mean_metrics,
+    rare_labels_from_manifest,
+)
 from qflbench.models.base import hetero_aggregate, slice_to, weighted_average
 from qflbench.models.iu_xray_torch_model import TorchMultimodalBackend, pick_device
 
@@ -131,9 +137,16 @@ def main():
         clients=args.clients, train_subset=args.train_subset,
         test_subset=args.test_subset, val_fraction=args.val_fraction,
         val_seed=args.val_seed, all_data=args.all_data,
+        labels=np.stack([item["label"] for item in manifest]),
     )
     part = protocol.train_by_client
     public_idx = protocol.public
+    train_pool = sorted({
+        index
+        for values in list(protocol.train_by_client.values()) + list(protocol.val_by_client.values())
+        for index in values
+    })
+    rare_labels = rare_labels_from_manifest(manifest, train_pool)
     print("protocol:", protocol.provenance())
 
     img_cache = None
@@ -206,7 +219,7 @@ def main():
                 ledger.start_round(round_index)
                 updates, weights = [], []
                 for ctx, backend, loader in clients:
-                    ledger.record(ctx.client_id, "download", gp)
+                    ledger.record(ctx.client_id, "download", gp, payload_type="full_parameter")
                     backend.set_parameters(gp, only_shared=True)
                     backend.local_train(
                         loader, epochs=args.local_epochs, lr=args.lr,
@@ -214,7 +227,7 @@ def main():
                         global_params=(gp if args.method == "fedprox" else None),
                     )
                     update = backend.get_parameters(only_shared=True)
-                    ledger.record(ctx.client_id, "upload", update)
+                    ledger.record(ctx.client_id, "upload", update, payload_type="full_parameter")
                     updates.append(update)
                     weights.append(ctx.num_train)
                 gp = weighted_average(updates, weights)
@@ -237,11 +250,11 @@ def main():
                 for ctx, backend, loader in clients:
                     reference = backend.get_parameters(only_shared=True)
                     submodel = slice_to(gp, reference)
-                    ledger.record(ctx.client_id, "download", submodel)
+                    ledger.record(ctx.client_id, "download", submodel, payload_type="nested_parameter")
                     backend.set_parameters(submodel, only_shared=True)
                     backend.local_train(loader, epochs=args.local_epochs, lr=args.lr)
                     update = backend.get_parameters(only_shared=True)
-                    ledger.record(ctx.client_id, "upload", update)
+                    ledger.record(ctx.client_id, "upload", update, payload_type="nested_parameter")
                     updates.append(update)
                     weights.append(ctx.num_train)
                 gp = hetero_aggregate(updates, weights)
@@ -273,12 +286,18 @@ def main():
                         mu=mu, global_protos=global_protos,
                     )
                     client_sums, client_counts = backend.label_prototype_stats(loader)
-                    ledger.record(ctx.client_id, "upload", (client_sums, client_counts))
+                    ledger.record(
+                        ctx.client_id, "upload", (client_sums, client_counts),
+                        payload_type="prototype_statistics",
+                    )
                     sums += client_sums
                     counts += client_counts
                 global_protos = (sums / np.maximum(counts, 1.0)[:, None]).astype(np.float32)
                 for ctx, _, _ in clients:
-                    ledger.record(ctx.client_id, "download", global_protos)
+                    ledger.record(
+                        ctx.client_id, "download", global_protos,
+                        payload_type="prototype",
+                    )
                 val = mean_metrics([backend.evaluate(val_loader) for _, backend, _ in clients])
                 comm = ledger.finish_round()
                 artifacts.log_validation(round_index, val, time.time() - lap, comm)
@@ -302,11 +321,11 @@ def main():
                 for ctx, backend, loader in clients:
                     backend.local_train(loader, epochs=args.local_epochs, lr=args.lr)
                     client_logits = backend.predict_logits(public_loader)
-                    ledger.record(ctx.client_id, "upload", client_logits)
+                    ledger.record(ctx.client_id, "upload", client_logits, payload_type="logit")
                     logits.append(client_logits)
                 consensus = np.mean(np.stack(logits, axis=0), axis=0)
                 for ctx, backend, _ in clients:
-                    ledger.record(ctx.client_id, "download", consensus)
+                    ledger.record(ctx.client_id, "download", consensus, payload_type="logit")
                     backend.distill(
                         public_loader, consensus, epochs=args.distill_epochs,
                         lr=(args.distill_lr or args.lr), temperature=args.distill_temp,
@@ -323,24 +342,33 @@ def main():
         selected, models, _ = load_checkpoint(str(artifacts.checkpoint_path))
         if args.method in {"fedavg", "fedprox"}:
             global_backend.set_parameters(models["global"], only_shared=True)
-            test_metrics = global_backend.evaluate(test_loader)
+            details = canonical_backend_evaluation(
+                global_backend, val_loader, test_loader, rare_labels=rare_labels,
+            )
+            test_metrics = details["test"]["summary"]
         elif args.method == "heterofl":
             gp = models["global"]
-            test_rows = []
-            for _, backend, _ in clients:
+            evaluation_rows = []
+            for ctx, backend, _ in clients:
                 backend.set_parameters(
                     slice_to(gp, backend.get_parameters(only_shared=True)),
                     only_shared=True,
                 )
-                test_rows.append(backend.evaluate(test_loader))
-            test_metrics = mean_metrics(test_rows)
+                evaluation_rows.append((ctx.client_id, backend, val_loader, test_loader))
+            test_metrics, details = canonical_client_evaluation(
+                evaluation_rows, rare_labels=rare_labels,
+            )
         else:
-            test_rows = []
+            evaluation_rows = []
             for ctx, backend, _ in clients:
                 backend.set_parameters(models[f"client_{ctx.client_id}"], only_shared=True)
-                test_rows.append(backend.evaluate(test_loader))
-            test_metrics = mean_metrics(test_rows)
-        artifacts.write_test(metrics=test_metrics, checkpoint_metadata=selected)
+                evaluation_rows.append((ctx.client_id, backend, val_loader, test_loader))
+            test_metrics, details = canonical_client_evaluation(
+                evaluation_rows, rare_labels=rare_labels,
+            )
+        artifacts.write_test(
+            metrics=test_metrics, checkpoint_metadata=selected, details=details,
+        )
         print(f"selected round={selected['best_round']} "
               f"val_auroc={selected['best_validation_metrics']['auroc']:.4f}")
         print(f"test_auroc={test_metrics['auroc']:.4f} (single full-test evaluation)")

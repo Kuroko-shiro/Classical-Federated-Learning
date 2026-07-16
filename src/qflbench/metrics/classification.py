@@ -107,44 +107,13 @@ def multilabel_metrics(y_true: np.ndarray, probs: np.ndarray,
       macro_f1 : unweighted mean F1 over classes that appear in y_true.
       auroc/auprc : macro-averaged over classes with both positives & negatives.
     """
+    from ..evaluation.metrics import multilabel_report
+
     y_true = np.asarray(y_true)
     probs = np.asarray(probs)
     if y_true.size == 0:
-        return {"accuracy": 0.0, "hamming_acc": 0.0, "macro_f1": 0.0,
-                "auroc": 0.0, "auprc": 0.0}
-    preds = (probs >= threshold).astype(int)
-
-    exact = float(np.mean(np.all(preds == y_true, axis=1)))
-    hamming = float(np.mean(preds == y_true))
-
-    # macro-F1 over classes present in y_true
-    f1s = []
-    for c in range(y_true.shape[1]):
-        yt, yp = y_true[:, c], preds[:, c]
-        if yt.sum() == 0:
-            continue
-        tp = int(((yp == 1) & (yt == 1)).sum())
-        fp = int(((yp == 1) & (yt == 0)).sum())
-        fn = int(((yp == 0) & (yt == 1)).sum())
-        prec = tp / (tp + fp) if (tp + fp) else 0.0
-        rec = tp / (tp + fn) if (tp + fn) else 0.0
-        f1s.append(2 * prec * rec / (prec + rec) if (prec + rec) else 0.0)
-    macro_f1 = float(np.mean(f1s)) if f1s else 0.0
-
-    # macro AUROC / AUPRC over evaluable classes
-    try:
-        from sklearn.metrics import roc_auc_score, average_precision_score
-        aurocs, auprcs = [], []
-        for c in range(y_true.shape[1]):
-            yt = y_true[:, c]
-            if yt.sum() == 0 or yt.sum() == len(yt):
-                continue
-            aurocs.append(roc_auc_score(yt, probs[:, c]))
-            auprcs.append(average_precision_score(yt, probs[:, c]))
-        auroc = float(np.mean(aurocs)) if aurocs else 0.0
-        auprc = float(np.mean(auprcs)) if auprcs else 0.0
-    except Exception:
-        auroc = auprc = 0.0
-
-    return {"accuracy": exact, "hamming_acc": hamming, "macro_f1": macro_f1,
-            "auroc": auroc, "auprc": auprc}
+        return {"accuracy": float("nan"), "hamming_acc": float("nan"),
+                "macro_f1": float("nan"), "auroc": float("nan"),
+                "auprc": float("nan")}
+    thresholds = np.full(y_true.shape[1], float(threshold))
+    return multilabel_report(y_true, probs, thresholds=thresholds)["summary"]

@@ -18,7 +18,11 @@ from transformers import AutoTokenizer
 from qflbench.data.iu_xray_prep import build_manifest
 from qflbench.data.iu_xray_torch import IUXrayDataset
 from qflbench.experiments.iu_protocol import DEFAULT_TEST_SUBSET, load_checkpoint, load_iu_split
-from qflbench.experiments.iu_runtime import mean_metrics
+from qflbench.experiments.iu_runtime import (
+    canonical_backend_evaluation,
+    canonical_client_evaluation,
+    rare_labels_from_manifest,
+)
 from qflbench.models.base import slice_to
 from qflbench.models.iu_xray_torch_model import TorchMultimodalBackend
 
@@ -50,6 +54,7 @@ def _backend(cid, dim, modalities, config, *, proto_dim=0):
         share_encoders=True, all_modalities=True,
         text_model=config.get("text_model", "bert-base-uncased"),
         pretrained=True, proto_dim=proto_dim,
+        use_min=bool(config.get("use_min", False)),
         seed=int(config.get("seed", 0)),
     )
 
@@ -70,20 +75,29 @@ def main():
         train_subset=int(config.get("train_subset", 2510)),
         test_subset=cli.test_subset,
         val_fraction=float(config.get("val_fraction", 0.1)),
-        val_seed=int(config.get("val_seed", 20260715)),
+        val_seed=int(config.get("val_seed", 0)),
         all_data=bool(config.get("all_data", False)),
+        labels=torch.stack([torch.as_tensor(item["label"]) for item in manifest]).numpy(),
     )
     tokenizer = AutoTokenizer.from_pretrained(config.get("text_model", "bert-base-uncased"))
     cache = torch.load(cli.img_cache) if cli.img_cache else None
-    dataset = IUXrayDataset(
-        manifest, protocol.test, tokenizer,
-        img_size=int(config.get("img_size", 224)), train=False,
-        modalities=["image", "text"], img_cache=cache,
-    )
-    loader = DataLoader(
-        dataset, batch_size=int(config.get("batch", 8)), shuffle=False,
-        num_workers=cli.num_workers,
-    )
+    def loader(indices, held_modalities):
+        dataset = IUXrayDataset(
+            manifest, indices, tokenizer,
+            img_size=int(config.get("img_size", 224)), train=False,
+            modalities=held_modalities, img_cache=cache,
+        )
+        return DataLoader(
+            dataset, batch_size=int(config.get("batch", 8)), shuffle=False,
+            num_workers=cli.num_workers,
+        )
+
+    train_pool = sorted({
+        index
+        for values in list(protocol.train_by_client.values()) + list(protocol.val_by_client.values())
+        for index in values
+    })
+    rare_labels = rare_labels_from_manifest(manifest, train_pool)
 
     method = metadata.get("method", config.get("method", "centralized"))
     embed_dims = metadata.get("embed_dims") or [int(config.get("embed_dim", 256))] * clients
@@ -91,7 +105,11 @@ def main():
     if "global" in models and method != "heterofl":
         backend = _backend(-1, int(config.get("embed_dim", embed_dims[0])), ["image", "text"], config)
         backend.set_parameters(models["global"], only_shared=True)
-        metrics = backend.evaluate(loader)
+        details = canonical_backend_evaluation(
+            backend, loader(protocol.validation, ["image", "text"]),
+            loader(protocol.test, ["image", "text"]), rare_labels=rare_labels,
+        )
+        metrics = details["test"]["summary"]
     elif "global" in models:  # nested-width HeteroFL
         global_params = models["global"]
         rows = []
@@ -101,21 +119,35 @@ def main():
                 slice_to(global_params, backend.get_parameters(only_shared=True)),
                 only_shared=True,
             )
-            rows.append(backend.evaluate(loader))
-        metrics = mean_metrics(rows)
+            min_key = f"min_client_{cid}"
+            if min_key in models:
+                backend.set_min_parameters(models[min_key])
+            rows.append((
+                cid, backend, loader(protocol.validation, modalities[cid]),
+                loader(protocol.test, modalities[cid]),
+            ))
+        metrics, details = canonical_client_evaluation(rows, rare_labels=rare_labels)
     elif "client" in models:  # one local-baseline checkpoint
+        held_modalities = metadata.get("modalities", ["image", "text"])
         dim = int(metadata.get("embed_dim", config.get("embed_dim", 256)))
-        backend = _backend(int(metadata.get("client_id", 0)), dim, metadata.get("modalities", ["image", "text"]), config)
+        backend = _backend(int(metadata.get("client_id", 0)), dim, held_modalities, config)
         backend.set_parameters(models["client"], only_shared=True)
-        metrics = backend.evaluate(loader)
+        details = canonical_backend_evaluation(
+            backend, loader(protocol.validation, held_modalities),
+            loader(protocol.test, held_modalities), rare_labels=rare_labels,
+        )
+        metrics = details["test"]["summary"]
     else:
         rows = []
         proto_dim = int(config.get("proto_dim", 0)) if method == "fedproto" else 0
         for cid, dim in enumerate(embed_dims):
             backend = _backend(cid, int(dim), modalities[cid], config, proto_dim=proto_dim)
             backend.set_parameters(models[f"client_{cid}"], only_shared=True)
-            rows.append(backend.evaluate(loader))
-        metrics = mean_metrics(rows)
+            rows.append((
+                cid, backend, loader(protocol.validation, modalities[cid]),
+                loader(protocol.test, modalities[cid]),
+            ))
+        metrics, details = canonical_client_evaluation(rows, rare_labels=rare_labels)
 
     digest = hashlib.sha256()
     with open(cli.checkpoint, "rb") as handle:
@@ -128,6 +160,7 @@ def main():
         "test_policy": "frozen full test, one evaluation",
         "checkpoint_sha256": checkpoint_hash,
         "checkpoint_metadata": metadata,
+        "details": details,
     }
     output = Path(cli.output) if cli.output else Path(cli.checkpoint).with_suffix(".reeval_test.json")
     output.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
