@@ -1,0 +1,38 @@
+name: VitalDB Stage F Canonical Packed Manifest
+
+on:
+  push:
+    branches:
+      - agent/vitaldb-stage-ab
+    paths:
+      - 'vitaldb_stage_f/**'
+      - '.github/workflows/vitaldb_stage_f.yml'
+  workflow_dispatch:
+
+jobs:
+  packed-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install -r vitaldb_stage_f/requirements.txt
+      - name: Build canonical packed MAP/window manifest
+        run: |
+          python vitaldb_stage_f/build_packed_manifest.py \
+            --out artifacts/vitaldb_stage_f \
+            --workers 4 \
+            --seed 20260904
+      - name: Show summary
+        if: always()
+        run: cat artifacts/vitaldb_stage_f/vitaldb_packed_manifest_summary.json 2>/dev/null || true
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-stage-f-canonical-packed-manifest
+          path: artifacts/vitaldb_stage_f
+          if-no-files-found: warn
