@@ -1,0 +1,6 @@
+numpy>=1.26
+pandas>=2.1
+pyarrow>=15.0
+requests>=2.31
+wfdb>=4.3
+vitaldb @ git+https://github.com/vitaldb/vitalutils.git@98389fa74b1d60b9d9a629da9a5ee85dfa81e478#subdirectory=python/vitaldb-pypi
