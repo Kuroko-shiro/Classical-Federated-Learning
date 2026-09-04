@@ -1,0 +1,19 @@
+{
+  "n_requested": 100,
+  "n_success": 100,
+  "success_fraction": 1.0,
+  "sampling_rate_hz": 125.0,
+  "median_load_seconds_per_case": 2.1933724880218506,
+  "median_duration_sec": 12521.296,
+  "ecg_median_finite_fraction": 0.9998733443275893,
+  "pleth_median_finite_fraction": 0.9998607173447231,
+  "ecg_median_p01": -0.3942089080810547,
+  "ecg_median_p99": 0.8697361946105957,
+  "pleth_median_p01": -1.5489501953125,
+  "pleth_median_p99": 65.59811401367188,
+  "ecg_95pct_robust_outlier_fraction": 0.02758244687949876,
+  "pleth_95pct_robust_outlier_fraction": 0.004471547565895967,
+  "ecg_cases_max_gt_20": 54,
+  "pleth_cases_max_gt_500": 51,
+  "interpretation": "Raw maxima are frequently dominated by sparse extremes; final QC is window-level and uses robust statistics rather than whole-case maxima."
+}
