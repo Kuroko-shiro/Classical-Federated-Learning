@@ -1,0 +1,47 @@
+name: VitalDB Stage A-B Audit
+
+on:
+  push:
+    branches:
+      - agent/vitaldb-stage-ab
+    paths:
+      - 'vitaldb_stage_ab/**'
+      - '.github/workflows/vitaldb_stage_ab.yml'
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run VitalDB Stage A/B
+        run: |
+          bash vitaldb_stage_ab/run_stage_ab.sh
+
+      - name: Show key outputs
+        if: always()
+        run: |
+          echo '--- pair availability ---'
+          cat artifacts/vitaldb_stage_ab/vitaldb_pair_availability.md 2>/dev/null || true
+          echo '--- access audit ---'
+          cat artifacts/vitaldb_stage_ab/vitaldb_access_audit.md 2>/dev/null || true
+          echo '--- smoke download ---'
+          cat artifacts/vitaldb_stage_ab/vitaldb_smoke_download_audit.csv 2>/dev/null || true
+          echo '--- header qc ---'
+          cat artifacts/vitaldb_stage_ab/vitaldb_header_qc_smoke.csv 2>/dev/null || true
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-stage-ab-audit
+          path: artifacts/vitaldb_stage_ab
+          if-no-files-found: warn
