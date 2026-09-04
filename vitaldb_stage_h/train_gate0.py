@@ -19,18 +19,18 @@ from torch.utils.data import Dataset, DataLoader
 class WindowDataset(Dataset):
     def __init__(self, tensor_path, manifest, condition):
         self.x = np.load(tensor_path, mmap_mode="r")
-        self.m = manifest.reset_index(drop=True)
+        self.indices = manifest["tensor_index"].to_numpy(dtype=np.int64, copy=True)
+        self.labels = manifest["label"].to_numpy(dtype=np.float32, copy=True)
         self.condition = condition
-    def __len__(self): return len(self.m)
+    def __len__(self): return len(self.indices)
     def __getitem__(self, i):
-        r = self.m.iloc[i]
-        idx = int(r.tensor_index)
+        idx = int(self.indices[i])
         x = np.asarray(self.x[idx], dtype=np.float32)
         if self.condition == "ecg_only": x = x[0:1]
         elif self.condition == "pleth_only": x = x[1:2]
         elif self.condition == "ecg_pleth": pass
         else: raise ValueError(self.condition)
-        return torch.from_numpy(x.copy()), torch.tensor(float(r.label), dtype=torch.float32)
+        return torch.from_numpy(x.copy()), torch.tensor(self.labels[i], dtype=torch.float32)
 
 
 class Encoder(nn.Module):
@@ -133,7 +133,7 @@ def main():
             stale+=1
             if stale>=args.patience: break
     model.load_state_dict(torch.load(ckpt,map_location=device,weights_only=True))
-    vy,vp=predict(model,va,device); thr,val_f1=threshold_from_val(vy,vp); ty,tp=predict(model,te,device)
+    vy,vp=predict(model,va,device); thr,_=threshold_from_val(vy,vp); ty,tp=predict(model,te,device)
     vm=metrics(vy,vp,thr); tm=metrics(ty,tp,thr)
     result={"condition":args.condition,"seed":args.seed,"best_epoch":best_epoch,"selection_metric":"validation AUPRC","threshold":thr,"threshold_selection":"validation max F1","n_params":nparams,"pos_weight":float(pos_weight.item()),"val":vm,"test":tm,"wall_seconds":float(time.time()-start)}
     (out/"metrics.json").write_text(json.dumps(result,indent=2),encoding="utf-8")
