@@ -1,3 +1,4 @@
+# P2 v2: preserve absolute ART pressure for forecasting-collapse diagnostic
 name: VitalDB P2 ART Diagnostic
 
 on:
@@ -49,6 +50,8 @@ jobs:
           print(d)
           if d['scale_gate'] != 'P2_SCALE_GO':
               raise SystemExit('STOP: P2 ART common cohort fell below 2500 cases')
+          if 'absolute pressure preserved' not in d.get('art_input_scaling',''):
+              raise SystemExit('STOP: P2 must preserve absolute ART pressure')
           PY
       - name: Reproducibility metadata
         run: |
