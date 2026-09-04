@@ -22,6 +22,15 @@ MAX_ROBUST_OUTLIER = 0.20
 ART_MIN_P01_P99_RANGE = 5.0
 CLIP_SIGMA = 20.0
 
+# P2 is specifically a forecasting-collapse diagnostic.  Unlike ECG/PLETH,
+# ART must retain its absolute pressure level; per-window centering would erase
+# the clinically obvious "current blood pressure -> future blood pressure" signal
+# we are trying to detect.  Use fixed physical scaling, independent of train/test.
+ART_PHYS_MIN_MMHG = -20.0
+ART_PHYS_MAX_MMHG = 300.0
+ART_INPUT_CENTER_MMHG = 80.0
+ART_INPUT_SCALE_MMHG = 40.0
+
 
 def max_true_run(mask: np.ndarray) -> int:
     if not mask.any():
@@ -33,7 +42,7 @@ def max_true_run(mask: np.ndarray) -> int:
     return int((ends - starts).max()) if len(starts) else 0
 
 
-def art_qc_and_normalize(x: np.ndarray):
+def art_qc_and_scale(x: np.ndarray):
     x = np.asarray(x, dtype=np.float64)
     finite = np.isfinite(x)
     finite_fraction = float(finite.mean())
@@ -56,10 +65,12 @@ def art_qc_and_normalize(x: np.ndarray):
     robust_range = float(q99 - q01)
     flat_fraction = float(np.mean(np.abs(np.diff(y)) < 1e-8)) if len(y) > 1 else 1.0
     outlier_fraction = float(np.mean(np.abs(y - q50) > CLIP_SIGMA * robust_scale))
+    physical_clip_fraction = float(np.mean((y < ART_PHYS_MIN_MMHG) | (y > ART_PHYS_MAX_MMHG)))
     rec.update({
         "p01": float(q01), "p50": float(q50), "p99": float(q99),
         "robust_range": robust_range, "robust_scale": float(robust_scale),
         "flat_diff_fraction": flat_fraction, "robust_outlier_fraction": outlier_fraction,
+        "physical_clip_fraction": physical_clip_fraction,
     })
     if robust_range < ART_MIN_P01_P99_RANGE or robust_scale <= 1e-7:
         return None, rec, "low_dynamic_range"
@@ -68,11 +79,10 @@ def art_qc_and_normalize(x: np.ndarray):
     if outlier_fraction > MAX_ROBUST_OUTLIER:
         return None, rec, "artifact_fraction"
 
-    lo = q50 - CLIP_SIGMA * robust_scale
-    hi = q50 + CLIP_SIGMA * robust_scale
-    y = np.clip(y, lo, hi)
-    y = (y - q50) / robust_scale
-    y = np.clip(y, -CLIP_SIGMA, CLIP_SIGMA).astype(np.float16)
+    # Preserve absolute mmHg level. Fixed constants avoid using validation/test
+    # distribution statistics and make the diagnostic reproducible.
+    y = np.clip(y, ART_PHYS_MIN_MMHG, ART_PHYS_MAX_MMHG)
+    y = ((y - ART_INPUT_CENTER_MMHG) / ART_INPUT_SCALE_MMHG).astype(np.float16)
     return y, rec, "ok"
 
 
@@ -89,7 +99,7 @@ def extract_case(caseid: int, g: pd.DataFrame):
             if i0 < 0 or i1 > n:
                 rows.append((int(r.source_index), None, {**base, "art_qc_pass": False, "reject_reason": "bounds"}))
                 continue
-            art, rec, reason = art_qc_and_normalize(arr[i0:i1])
+            art, rec, reason = art_qc_and_scale(arr[i0:i1])
             q = {**base, **{f"art_{k}": v for k, v in rec.items()}}
             if art is None:
                 q.update(art_qc_pass=False, reject_reason=reason)
@@ -190,12 +200,16 @@ def main():
         "scale_gate":"P2_SCALE_GO" if kept_cases>=2500 else ("P2_SCALE_YELLOW" if kept_cases>=1500 else "P2_SCALE_NO_GO"),
         "sampling_rate_hz":FS,
         "window_seconds":20,
+        "art_input_scaling":"absolute pressure preserved: clip [-20,300] mmHg then (x-80)/40; no per-window centering/scaling",
         "art_qc_policy":{
             "min_finite_fraction":MIN_FINITE,
             "max_nan_run_sec":MAX_NAN_RUN_SAMPLES/FS,
             "max_flat_diff_fraction":MAX_FLAT_DIFF,
             "max_robust_outlier_fraction_20sigma":MAX_ROBUST_OUTLIER,
             "art_min_p01_p99_range_mmhg":ART_MIN_P01_P99_RANGE,
+            "physical_clip_range_mmhg":[ART_PHYS_MIN_MMHG,ART_PHYS_MAX_MMHG],
+            "fixed_input_center_mmhg":ART_INPUT_CENTER_MMHG,
+            "fixed_input_scale_mmhg":ART_INPUT_SCALE_MMHG,
         },
         "splits":splits,
         "tensor_file":"windows_ecg_art_qc_f16.npy",
