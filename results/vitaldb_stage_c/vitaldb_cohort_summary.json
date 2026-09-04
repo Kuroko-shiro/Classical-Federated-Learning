@@ -1,0 +1,17 @@
+{
+  "audit_time_utc": "2026-09-04T14:47:14.464067+00:00",
+  "p1_raw_cases": 3506,
+  "p1_raw_subjects": 3385,
+  "map_download_success_cases": 3320,
+  "label_usable_cases": 3282,
+  "label_usable_subjects": 3175,
+  "label_usable_fraction": 0.9361095265259555,
+  "cases_with_qualifying_ioh": 2298,
+  "case_level_ioh_prevalence": 0.70018281535649,
+  "total_qualifying_events": 10332,
+  "median_events_per_positive_case": 3.0,
+  "median_map_sampling_interval_sec": 2.0,
+  "median_continuity_coverage_fraction": 0.9918499999254515,
+  "event_definition": "Solar8000/ART_MBP < 65 mmHg continuously for >=60 s; gaps >5 s break continuity; values outside [20,250] mmHg are invalid for label audit.",
+  "important": "This is label-only usability. Final usable cohort must also pass ECG/PLETH signal QC and window construction."
+}
