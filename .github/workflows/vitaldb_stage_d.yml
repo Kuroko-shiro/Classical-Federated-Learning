@@ -1,0 +1,47 @@
+name: VitalDB Stage D Window Manifest
+
+on:
+  push:
+    branches:
+      - agent/vitaldb-stage-ab
+    paths:
+      - 'vitaldb_stage_d/**'
+      - '.github/workflows/vitaldb_stage_d.yml'
+  workflow_dispatch:
+
+jobs:
+  build-window-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python -m pip install -r vitaldb_stage_d/requirements.txt tabulate
+
+      - name: Build leakage-free window manifest
+        run: |
+          python vitaldb_stage_d/build_window_manifest.py \
+            --out artifacts/vitaldb_stage_d \
+            --workers 8 \
+            --seed 20260904
+
+      - name: Show summary
+        if: always()
+        run: |
+          cat artifacts/vitaldb_stage_d/vitaldb_window_report.md 2>/dev/null || true
+          cat artifacts/vitaldb_stage_d/vitaldb_window_summary.json 2>/dev/null || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-stage-d-window-manifest
+          path: artifacts/vitaldb_stage_d
+          if-no-files-found: warn
