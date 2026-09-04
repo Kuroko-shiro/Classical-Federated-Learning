@@ -1,0 +1,48 @@
+name: VitalDB Stage E Packed Signal Smoke
+
+on:
+  push:
+    branches:
+      - agent/vitaldb-stage-ab
+    paths:
+      - 'vitaldb_stage_e/**'
+      - '.github/workflows/vitaldb_stage_e_smoke.yml'
+  workflow_dispatch:
+
+jobs:
+  signal-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: python -m pip install -r vitaldb_stage_e/requirements.txt
+
+      - name: Run packed signal smoke QC
+        run: |
+          python vitaldb_stage_e/signal_smoke.py \
+            --out artifacts/vitaldb_stage_e_smoke \
+            --n 100 \
+            --workers 4 \
+            --seed 20260904
+
+      - name: Show summary
+        if: always()
+        run: |
+          cat artifacts/vitaldb_stage_e_smoke/vitaldb_packed_signal_smoke_report.md 2>/dev/null || true
+          cat artifacts/vitaldb_stage_e_smoke/vitaldb_packed_signal_smoke_summary.json 2>/dev/null || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-stage-e-packed-signal-smoke
+          path: artifacts/vitaldb_stage_e_smoke
+          if-no-files-found: warn
