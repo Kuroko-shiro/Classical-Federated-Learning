@@ -1,0 +1,140 @@
+name: VitalDB P2 ART Diagnostic
+
+on:
+  push:
+    branches:
+      - agent/vitaldb-stage-ab
+    paths:
+      - 'vitaldb_stage_j/**'
+      - '.github/workflows/vitaldb_p2_art_diagnostic.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  SOURCE_RUN_ID: '33889175977'
+
+jobs:
+  extract-art:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download canonical P1 processed dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: vitaldb-gate0-dataset
+          path: p1
+          repository: ${{ github.repository }}
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install pinned packed-VitalDB dependencies
+        run: python -m pip install -r vitaldb_stage_g/requirements.txt
+      - name: Add ART waveform to fixed P1-QC windows
+        run: |
+          python vitaldb_stage_j/extract_art_on_p1.py \
+            --p1-data-dir p1 \
+            --out p2 \
+            --workers 8
+      - name: Enforce P2 diagnostic scale gate
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('p2/vitaldb_p2_qc_summary.json'))
+          print(d)
+          if d['scale_gate'] != 'P2_SCALE_GO':
+              raise SystemExit('STOP: P2 ART common cohort fell below 2500 cases')
+          PY
+      - name: Reproducibility metadata
+        run: |
+          python -m pip freeze > p2/pip_freeze_p2_extraction.txt
+          git rev-parse HEAD > p2/git_commit.txt
+      - name: Upload P2 processed dataset
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-p2-art-dataset
+          path: p2
+          compression-level: 1
+          retention-days: 30
+
+  train-p2:
+    needs: extract-art
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [101, 202, 303]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download P2 dataset
+        uses: actions/download-artifact@v4
+        with:
+          name: vitaldb-p2-art-dataset
+          path: p2
+      - name: Install CPU training dependencies
+        run: |
+          python -m pip install numpy pandas pyarrow scikit-learn
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Train ECG, ART and ECG+ART matched diagnostic models
+        run: |
+          for condition in ecg_only art_only ecg_art; do
+            python vitaldb_stage_j/train_p2.py \
+              --data-dir p2 \
+              --out results/${condition}_seed${{ matrix.seed }} \
+              --condition ${condition} \
+              --seed ${{ matrix.seed }} \
+              --epochs 12 \
+              --batch-size 256 \
+              --lr 1e-3 \
+              --patience 3
+          done
+      - name: Upload P2 seed results
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-p2-seed-${{ matrix.seed }}
+          path: results
+          retention-days: 30
+
+  aggregate-p2:
+    needs: train-p2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download P2 seed metrics
+        uses: actions/download-artifact@v4
+        with:
+          pattern: vitaldb-p2-seed-*
+          path: metrics
+          merge-multiple: true
+      - name: Download P2 QC summary
+        uses: actions/download-artifact@v4
+        with:
+          name: vitaldb-p2-art-dataset
+          path: p2
+      - name: Aggregate P2 diagnostic
+        run: |
+          python -m pip install numpy pandas
+          python vitaldb_stage_j/aggregate_p2.py \
+            --metrics-root metrics \
+            --qc-summary p2/vitaldb_p2_qc_summary.json \
+            --out report
+      - name: Show P2 report
+        run: cat report/vitaldb_p2_report.md
+      - name: Upload P2 final report
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-p2-art-final-report
+          path: report
+          retention-days: 30
