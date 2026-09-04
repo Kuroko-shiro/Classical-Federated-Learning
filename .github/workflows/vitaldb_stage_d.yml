@@ -27,7 +27,7 @@ jobs:
 
       - name: Build leakage-free window manifest
         run: |
-          python vitaldb_stage_d/build_window_manifest.py \
+          python vitaldb_stage_d/build_window_manifest_fixed.py \
             --out artifacts/vitaldb_stage_d \
             --workers 8 \
             --seed 20260904
