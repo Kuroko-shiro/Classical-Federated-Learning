@@ -1,0 +1,156 @@
+name: VitalDB Conditional Homogeneous FedAvg
+
+on:
+  push:
+    branches:
+      - agent/vitaldb-stage-ab
+    paths:
+      - 'vitaldb_stage_l/**'
+      - '.github/workflows/vitaldb_homogeneous_fl_after_60s.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  SOURCE_60S_RUN_ID: '33937156959'
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    timeout-minutes: 190
+    outputs:
+      go: ${{ steps.decision.outputs.go }}
+      gain: ${{ steps.decision.outputs.gain }}
+      positive_seeds: ${{ steps.decision.outputs.positive_seeds }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for fixed 60-second sensitivity run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 180); do
+            status=$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_60S_RUN_ID} --jq .status)
+            conclusion=$(gh api repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_60S_RUN_ID} --jq '.conclusion // ""')
+            echo "attempt=${i} status=${status} conclusion=${conclusion}"
+            if [ "${status}" = "completed" ]; then
+              if [ "${conclusion}" != "success" ]; then
+                echo "Fixed 60 s sensitivity run did not succeed; refusing scientific decision." >&2
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 60
+          done
+          echo "Timed out waiting for fixed 60 s sensitivity run" >&2
+          exit 1
+      - name: Download fixed 60-second sensitivity result
+        uses: actions/download-artifact@v4
+        with:
+          name: vitaldb-p1-60s-sensitivity
+          path: sensitivity
+          repository: Kuroko-shiro/Classical-Federated-Learning
+          run-id: ${{ env.SOURCE_60S_RUN_ID }}
+          github-token: ${{ github.token }}
+      - id: decision
+        name: Apply frozen continuation rule
+        run: |
+          python - <<'PY'
+          import json, pathlib, os
+          ps=list(pathlib.Path('sensitivity').rglob('vitaldb_p1_60s_sensitivity_summary.json'))
+          if len(ps)!=1:
+              raise SystemExit(f'expected one sensitivity summary, got {ps}')
+          d=json.load(open(ps[0]))
+          gain=float(d['fusion_gain_auprc_mean'])
+          pos=int(d['fusion_gain_positive_seeds'])
+          cohort=int(d['qc_pass_cases'])
+          # Frozen before observing the 60 s result: >=+0.02 AUPRC, >=2/3 positive seeds, >=2500 cases.
+          go=(gain>=0.02 and pos>=2 and cohort>=2500)
+          result={
+              'source_run_id': int(os.environ['SOURCE_60S_RUN_ID']),
+              'canonical_20s_decision': 'YELLOW',
+              '60s_fusion_gain_auprc_mean': gain,
+              '60s_positive_seeds': pos,
+              '60s_qc_pass_cases': cohort,
+              'continuation_rule': 'gain>=0.02 AND positive_seeds>=2/3 AND qc_pass_cases>=2500',
+              'run_homogeneous_fedavg': go,
+              'interpretation': 'CONTINUE_TO_MINIMAL_HOMOGENEOUS_FL' if go else 'STOP_VITALDB_AS_MAIN_MULTIMODAL_BENCHMARK'
+          }
+          pathlib.Path('decision').mkdir(exist_ok=True)
+          open('decision/vitaldb_after_60s_decision.json','w').write(json.dumps(result,indent=2))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write(f"go={'true' if go else 'false'}\n")
+              f.write(f"gain={gain}\n")
+              f.write(f"positive_seeds={pos}\n")
+          print(json.dumps(result,indent=2))
+          PY
+      - name: Upload continuation decision
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-after-60s-decision
+          path: decision
+          retention-days: 30
+
+  homogeneous-fedavg:
+    needs: decide
+    if: needs.decide.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/vitaldb-stage-ab
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install packed-signal and CPU training dependencies
+        run: |
+          python -m pip install -r vitaldb_stage_g/requirements.txt
+          python -m pip install scikit-learn
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Rebuild fixed packed P1 manifest
+        run: |
+          python vitaldb_stage_f/build_packed_manifest.py \
+            --out flwork/manifest \
+            --workers 6 \
+            --seed 20260904
+      - name: Re-extract selected 60-second ECG/PLETH dataset
+        run: |
+          python vitaldb_stage_k/extract_windows_60s.py \
+            --manifest flwork/manifest/vitaldb_window_manifest.parquet \
+            --out flwork/dataset \
+            --workers 8
+      - name: Verify FL cohort and 60-second tensor
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('flwork/dataset/vitaldb_signal_qc_summary.json'))
+          print(d)
+          if d['qc_pass_cases'] < 2500: raise SystemExit('STOP: FL cohort below 2500 cases')
+          if d['window_seconds'] != 60.0: raise SystemExit('STOP: not the selected 60 s dataset')
+          PY
+      - name: Run minimal homogeneous K=8 full-parameter FedAvg
+        run: |
+          python vitaldb_stage_l/train_homogeneous_fedavg.py \
+            --data-dir flwork/dataset \
+            --out flresult \
+            --seed 202 \
+            --clients 8 \
+            --rounds 10 \
+            --local-epochs 1 \
+            --batch-size 256 \
+            --lr 1e-3
+      - name: Attach provenance and continuation result
+        run: |
+          cp flwork/dataset/vitaldb_signal_qc_summary.json flresult/
+          echo "${SOURCE_60S_RUN_ID}" > flresult/source_60s_run_id.txt
+          git rev-parse HEAD > flresult/git_commit.txt
+          python -m pip freeze > flresult/pip_freeze.txt
+      - name: Upload homogeneous FedAvg result
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-homogeneous-fedavg-k8
+          path: flresult
+          retention-days: 30
