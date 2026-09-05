@@ -1,0 +1,95 @@
+name: VitalDB P1 60s Sensitivity
+
+on:
+  push:
+    branches:
+      - agent/vitaldb-stage-ab
+    paths:
+      - 'vitaldb_stage_k/**'
+      - '.github/workflows/vitaldb_p1_60s_sensitivity.yml'
+  workflow_dispatch:
+
+jobs:
+  sensitivity-60s:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install extraction and CPU training dependencies
+        run: |
+          python -m pip install -r vitaldb_stage_g/requirements.txt
+          python -m pip install scikit-learn
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Rebuild canonical packed P1 manifest
+        run: |
+          python vitaldb_stage_f/build_packed_manifest.py \
+            --out work60/manifest \
+            --workers 6 \
+            --seed 20260904
+      - name: Extract end-aligned 60-second ECG/PLETH windows
+        run: |
+          python vitaldb_stage_k/extract_windows_60s.py \
+            --manifest work60/manifest/vitaldb_window_manifest.parquet \
+            --out work60/dataset \
+            --workers 8
+      - name: Enforce diagnostic scale gate
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('work60/dataset/vitaldb_signal_qc_summary.json'))
+          print(d)
+          if d['qc_pass_cases'] < 2500:
+              raise SystemExit('STOP: 60 s sensitivity cohort <2500 cases')
+          PY
+      - name: Train three fixed seeds for all P1 conditions
+        run: |
+          mkdir -p results60
+          for seed in 101 202 303; do
+            for condition in ecg_only pleth_only ecg_pleth; do
+              python vitaldb_stage_h/train_gate0.py \
+                --data-dir work60/dataset \
+                --out results60/${condition}_seed${seed} \
+                --condition ${condition} \
+                --seed ${seed} \
+                --epochs 12 \
+                --batch-size 256 \
+                --lr 1e-3 \
+                --patience 3
+            done
+          done
+      - name: Aggregate 60-second sensitivity
+        run: |
+          python vitaldb_stage_h/aggregate_gate0.py \
+            --metrics-root results60 \
+            --qc-summary work60/dataset/vitaldb_signal_qc_summary.json \
+            --out report60
+          python - <<'PY'
+          import json
+          p='report60/vitaldb_gate0_summary.json'
+          d=json.load(open(p))
+          d['diagnostic_only']=True
+          d['diagnostic_name']='P1 60-second end-aligned input sensitivity'
+          d['canonical_20s_gate0_decision']='YELLOW'
+          d['note']='This post-Gate0 sensitivity analysis does not retroactively change the preregistered 20 s Gate0 decision.'
+          open('report60/vitaldb_p1_60s_sensitivity_summary.json','w').write(json.dumps(d,indent=2))
+          print(json.dumps(d,indent=2))
+          PY
+      - name: Show report
+        run: cat report60/vitaldb_gate0_report.md
+      - name: Save reproducibility metadata
+        run: |
+          cp work60/dataset/vitaldb_signal_qc_summary.json report60/vitaldb_60s_signal_qc_summary.json
+          python -m pip freeze > report60/pip_freeze.txt
+          git rev-parse HEAD > report60/git_commit.txt
+      - name: Upload compact sensitivity results
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitaldb-p1-60s-sensitivity
+          path: |
+            report60
+            results60/*/metrics.json
+            results60/*/history.csv
+          retention-days: 30
