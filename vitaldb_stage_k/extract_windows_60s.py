@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -11,6 +12,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import vitaldb
+
+# When this file is executed as `python vitaldb_stage_k/extract_windows_60s.py`,
+# Python puts vitaldb_stage_k/ (not the repository root) on sys.path. Add the
+# repository root explicitly so the canonical Stage G implementation can be
+# reused without packaging the research-stage directories.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from vitaldb_stage_g.extract_windows import (
     ECG, PLETH, FS, channel_qc_and_normalize,
